@@ -1,0 +1,156 @@
+"""Video upload / analysis / status / events / deletion endpoints."""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.api.utils import serialize_events, status_response
+from app.config import settings
+from app.core.worker import worker
+from app.database import get_db
+from app.models import Event, Person, Video
+from app.schemas import EventOut, StatusResponse, UploadResponse, VideoOut
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/videos", tags=["videos"])
+
+MAX_UPLOAD_BYTES = settings.max_upload_mb * 1024 * 1024
+
+
+@router.post("/upload", response_model=UploadResponse, status_code=201)
+async def upload_video(file: UploadFile = File(...), db: Session = Depends(get_db)) -> UploadResponse:
+    filename = Path(file.filename or "video.mp4").name
+    ext = Path(filename).suffix.lower()
+    if ext not in settings.allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(settings.allowed_extensions)}",
+        )
+
+    uploads_dir = Path(settings.storage_dir) / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    dest = uploads_dir / f"{uuid.uuid4().hex}_{filename}"
+
+    written = 0
+    try:
+        with open(dest, "wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="File exceeds upload size limit")
+                out.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
+    except Exception as exc:
+        dest.unlink(missing_ok=True)
+        logger.exception("Upload failed")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {exc}") from exc
+
+    video = Video(filename=filename, filepath=str(dest), status="uploaded")
+    db.add(video)
+    db.commit()
+    db.refresh(video)
+    logger.info("Uploaded video id=%s filename=%s", video.id, filename)
+    return UploadResponse(id=video.id, filename=filename, status=video.status)
+
+
+@router.post("/{video_id}/analyze", response_model=StatusResponse)
+async def analyze_video(video_id: int, db: Session = Depends(get_db)) -> StatusResponse:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    if video.status in ("queued", "processing"):
+        raise HTTPException(status_code=409, detail=f"Video already {video.status}")
+    video.status = "queued"
+    db.commit()
+    worker.enqueue(video_id)
+    logger.info("Enqueued analysis for video id=%s", video_id)
+    return status_response(video)
+
+
+@router.get("/{video_id}/status", response_model=StatusResponse)
+async def get_status(video_id: int, db: Session = Depends(get_db)) -> StatusResponse:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    pos = None
+    if video.status == "queued":
+        pos = worker.queued_position(video_id)
+    return status_response(video, queued_position=pos)
+
+
+@router.get("", response_model=list[VideoOut])
+async def list_videos(db: Session = Depends(get_db)) -> list[VideoOut]:
+    videos = db.scalars(select(Video).order_by(Video.created_at.desc())).all()
+    return [VideoOut.model_validate(v) for v in videos]
+
+
+@router.get("/{video_id}", response_model=VideoOut)
+async def get_video(video_id: int, db: Session = Depends(get_db)) -> VideoOut:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    return VideoOut.model_validate(video)
+
+
+@router.get("/{video_id}/events", response_model=list[EventOut])
+async def list_events(
+    video_id: int,
+    person_id: int | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=2000),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[EventOut]:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    stmt = select(Event).where(Event.video_id == video_id)
+    if person_id is not None:
+        stmt = stmt.where(Event.person_id == person_id)
+    if event_type:
+        stmt = stmt.where(Event.event_type == event_type)
+    stmt = stmt.order_by(Event.timestamp.asc()).offset(offset).limit(limit)
+    return serialize_events(db, list(db.scalars(stmt)))
+
+
+@router.delete("/{video_id}")
+async def delete_video(video_id: int, db: Session = Depends(get_db)) -> dict:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    if video.status in ("queued", "processing"):
+        raise HTTPException(status_code=409, detail="Cannot delete a video that is processing")
+    filepath = Path(video.filepath)
+    filepath.unlink(missing_ok=True)
+    for sub in ("frames", "images"):
+        shutil.rmtree(Path(settings.storage_dir) / sub / str(video_id), ignore_errors=True)
+    db.delete(video)
+    db.commit()
+    return {"ok": True, "id": video_id}
+
+
+@router.get("/{video_id}/stats")
+async def video_stats(video_id: int, db: Session = Depends(get_db)) -> dict:
+    video = db.get(Video, video_id)
+    if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    events = db.scalar(select(func.count(Event.id)).where(Event.video_id == video_id)) or 0
+    persons = db.scalar(select(func.count(Person.id)).where(Person.video_id == video_id)) or 0
+    types = dict(
+        db.execute(
+            select(Event.event_type, func.count(Event.id))
+            .where(Event.video_id == video_id)
+            .group_by(Event.event_type)
+        ).all()
+    )
+    return {"events": events, "persons": persons, "event_types": types}

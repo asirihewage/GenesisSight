@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# Local AI CCTV Analyzer — backend dependencies
+#
+# IMPORTANT (Windows + RTX 5080 / Blackwell, sm_120):
+#   Install PyTorch with CUDA 12.8 support BEFORE running pip install -r:
+#
+#     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#     pip install -r requirements.txt
+#
+#   Python 3.11 - 3.13 is recommended (3.14 may lack prebuilt torch wheels).
+# ---------------------------------------------------------------------------
+
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+httpx==0.28.1
+
+# Data layer
+sqlalchemy>=2.0.36
+# pydantic>=2.11 ships pydantic-core wheels for Python 3.14
+pydantic>=2.11.0
+pydantic-settings>=2.7.1
+
+# Numerical / image
+# numpy>=2.3 and opencv>=4.12 provide Python 3.14 wheels; older pins would
+# build from source and fail on Windows.
+numpy>=2.3.0
+opencv-python-headless>=4.12.0.88
+imageio-ffmpeg>=0.6.0
+Pillow>=11.2.0
+
+# Object detection / tracking
+ultralytics>=8.4.0
+supervision>=0.25.0
+
+# ---------------------------------------------------------------------------
+# Optional: Person Re-Identification (OSNet).
+# torchreid needs a C compiler on Windows (Cython) — install it in its own
+# step if you want OSNet; the app falls back to ResNet50 embeddings without it.
+#
+#   pip install torchreid
+# ---------------------------------------------------------------------------

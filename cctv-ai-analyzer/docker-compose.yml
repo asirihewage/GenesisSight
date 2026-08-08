@@ -1,0 +1,56 @@
+# Optional infrastructure for production-style deployments.
+#
+# The default setup is fully local: Python (FastAPI + PyTorch pipeline) and
+# Node (Vite dev server) run directly on Windows — no Docker needed.
+#
+# If you want a Redis-backed analysis queue (drop-in for the in-process queue),
+# run:  docker compose up -d redis
+# and point the backend at it (queue implementation in app/core/worker.py).
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cctv-analyzer-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Optional: run the backend in a container.
+  # Requires a CUDA-enabled image (e.g. nvidia/cuda:12.8.0-runtime-ubuntu22.04)
+  # and the NVIDIA container toolkit. The AI pipeline needs GPU passthrough.
+  backend:
+    image: nvidia/cuda:12.8.0-runtime-ubuntu22.04
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:////data/cctv.db
+      - STORAGE_DIR=/data/storage
+      - MODEL_DIR=/data/models
+      - API_PORT=8000
+      - PROD_MODE=1
+    volumes:
+      - app-data:/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
+  app-data:

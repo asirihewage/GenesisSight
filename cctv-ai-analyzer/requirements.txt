@@ -1,0 +1,2 @@
+# Backend (FastAPI, AI pipeline) dependencies
+-r backend/requirements.txt
