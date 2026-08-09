@@ -25,10 +25,10 @@ BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
 OUT = ROOT / "dist-exe" / "backend"
 
-# PyInstaller work/dist land in a temp dir: this machine's sandbox refuses
-# .exe writes from python inside the source tree. The finished bundle is
-# staged into the repo by PowerShell (which is allowed).
-BUILD_ROOT = Path(tempfile.gettempdir()) / "cctv-pyi"
+# PyInstaller work/dist live in the pre-approved temp workspace: this
+# machine's sandbox refuses python-written .exe files everywhere else.
+# The finished bundle is staged into the repo by PowerShell (which is allowed).
+BUILD_ROOT = Path(tempfile.gettempdir()) / "opencode" / "pyi"
 
 BUNDLE_DATA = [
     (str(FRONTEND / "dist"), "frontend/dist"),

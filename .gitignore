@@ -49,3 +49,6 @@ release/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# TS build info
+*.tsbuildinfo

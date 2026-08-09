@@ -217,7 +217,7 @@ def main() -> int:
     frontend_port = args.port or env_int("FRONTEND_PORT", 3000)
 
     if not (ROOT / "backend" / "app").exists():
-        print("[start] backend/app not found — run this from the project root (cctv-ai-analyzer/)")
+        print("[start] backend/app not found — run this from the project root")
         return 1
 
     check_python_env()
