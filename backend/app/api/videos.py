@@ -168,13 +168,17 @@ async def delete_video(video_id: int, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=404, detail="Video not found")
     if video.status in ("queued", "processing"):
         raise HTTPException(status_code=409, detail="Cannot delete a video that is processing")
+    # Delete video file
     filepath = Path(video.filepath)
     filepath.unlink(missing_ok=True)
+    # Delete associated media: frames and images per video
     for sub in ("frames", "images"):
         shutil.rmtree(Path(settings.storage_dir) / sub / str(video_id), ignore_errors=True)
+    # SQLAlchemy relationships cascade delete-orphan: events & persons rows removed auto
     db.delete(video)
     db.commit()
-    return {"ok": True, "id": video_id}
+    # Return acknowledgement
+    return {"ok": True, "id": video_id, "message": "Video and related data deleted successfully"}
 
 
 @router.get("/{video_id}/stats")
