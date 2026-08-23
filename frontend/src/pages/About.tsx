@@ -109,26 +109,27 @@ export function About() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldCheck className="h-4 w-4 text-primary" /> Developer
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            <p>
-              <span className="font-semibold text-foreground">Asiri Hewage</span><br/>
-              <span className="text-muted-foreground">Software Engineer from Sri Lanka</span>
-            </p>
-            <p className="text-sm">
-              <a href="https://www.linkedin.com/in/asirihewage" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/90 underline">
-                LinkedIn
-              </a>
-              ·
-              <a href="https://github.com/asirihewage" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/90 underline">
-                GitHub
-              </a>
-            </p>
-            <p>
-              Creator and lead developer of genesisSight — a local AI CCTV analysis platform built with
-              YOLO11x, ByteTrack, Re-ID, and Qwen2.5-VL models, running entirely offline.
-            </p>
-          </CardContent>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+          <p>
+            <span className="font-semibold text-foreground">Asiri Hewage</span><br/>
+            <span className="text-muted-foreground">Software Engineer from Sri Lanka</span>
+          </p>
+          <p className="text-sm">
+            <a href="https://www.linkedin.com/in/asirihewage" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/90 underline">
+              LinkedIn
+            </a>
+            ·
+            <a href="https://github.com/asirihewage" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/90 underline">
+              GitHub
+            </a>
+          </p>
+          <p>
+            Creator and lead developer of genesisSight — a local AI CCTV analysis platform built with
+            YOLO11x, ByteTrack, Re-ID, and Qwen2.5-VL models, running entirely offline.
+          </p>
+        </CardContent>
       </Card>
     </div>
   );
