@@ -241,25 +241,6 @@ export function Upload() {
           </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Pipeline preview</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2 text-xs">
-          {["Frame extraction", "Motion detection", "YOLO11x detection", "ByteTrack tracking",
-            "Re-ID identity matching", "Event generation", "Qwen2.5-VL analysis", "Timeline search"].map(
-            (step, i, arr) => (
-              <span key={step} className="flex items-center gap-2">
-                <span className="rounded-md border border-border bg-card px-2 py-1 text-muted-foreground">
-                  {step}
-                </span>
-                {i < arr.length - 1 && <FileVideo className="h-3 w-3 text-muted-foreground/50" />}
-              </span>
-            ),
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
