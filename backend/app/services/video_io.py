@@ -172,7 +172,15 @@ class VideoReader:
     # ------------------------------------------------------------------
     def read(self) -> tuple[bool, np.ndarray | None]:
         if self._cap is not None:
-            return self._cap.read()  # (ret, frame|None)
+            ret, frame = self._cap.read()
+            if not ret or frame is None:
+                return False, None
+            # Some CCTV/DVR streams hand back ret=True frames with zero-sized
+            # buffers (OpenCV logs them as 0x0). Passing those to cv2.resize
+            # crashes with "!ssize.empty()". Treat them as failed reads.
+            if frame.ndim != 3 or frame.shape[0] < 1 or frame.shape[1] < 1:
+                return False, None
+            return ret, frame
 
         data = self._proc.stdout.read(self._frame_size)  # type: ignore[union-attr]
         if not data or len(data) < self._frame_size:

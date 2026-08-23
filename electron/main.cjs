@@ -14,7 +14,7 @@
 
 "use strict";
 
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, Menu, Tray, nativeImage } = require("electron");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -27,7 +27,10 @@ const DEFAULT_DEV_URL = "http://127.0.0.1:8000";
 
 let backendUrl = null;
 let backendProc = null;
+let backendExited = false;
 let mainWindow = null;
+let splash = null;
+let tray = null;
 let quitting = false;
 
 // ---------------------------------------------------------------------------
@@ -96,23 +99,34 @@ function waitForHealth(url, timeoutMs) {
   const started = Date.now();
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
+      // in production, detect a dead backend and fail fast instead of waiting
+      if (backendExited) {
+        reject(new Error("The analysis engine exited before becoming ready"));
+        return;
+      }
       const req = http.get(`${url}/api/health`, (res) => {
         res.resume();
         if (res.statusCode === 200) resolve();
         else retry();
       });
-      req.on("error", retry);
+      req.on("error", () => {
+        if (backendExited) {
+          reject(new Error("The analysis engine exited before becoming ready"));
+          return;
+        }
+        retry();
+      });
       req.setTimeout(1500, () => {
         req.destroy();
         retry();
       });
     };
     const retry = () => {
-      if (Date.now() - started > timeoutMs) {
+      if (timeoutMs && Date.now() - started > timeoutMs) {
         reject(new Error(`Backend not healthy within ${timeoutMs} ms`));
         return;
       }
-      setTimeout(tryOnce, 500);
+      setTimeout(tryOnce, 1000);
     };
     tryOnce();
   });
@@ -141,6 +155,7 @@ async function startBackend() {
     STORAGE_DIR: path.join(userDataDir(), "storage"),
     MODEL_DIR: path.join(userDataDir(), "models"),
     ELECTRON_MODE: "1",
+    FRONTEND_DIST: path.join(process.resourcesPath, "backend", "_internal", "frontend", "dist"),
   };
   const log = logFileStream();
   backendProc = spawn(exe, [], { env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -151,6 +166,7 @@ async function startBackend() {
   });
   backendProc.on("exit", (code, signal) => {
     console.log("backend exited:", code, signal);
+    backendExited = true;
     if (!quitting && mainWindow && !mainWindow.isDestroyed()) {
       dialog.showErrorBox(
         "CCTV Analyzer backend stopped",
@@ -186,8 +202,91 @@ function killBackend() {
 }
 
 // ---------------------------------------------------------------------------
+// Splash (shown while the engine boots; first launch can take minutes
+// because the antivirus scans ~3 GB of bundled DLLs)
+// ---------------------------------------------------------------------------
+
+let splashLogTimer = null;
+let splashLogTail = "";
+
+function startSplashLogTailer() {
+  if (splashLogTimer) return;
+  splashLogTimer = setInterval(() => {
+    if (!splash || splash.isDestroyed()) return;
+    const logPath = path.join(userDataDir(), "storage", "logs", "app.log");
+    try {
+      const size = fs.statSync(logPath).size;
+      if (size === 0) return;
+      const start = Math.max(0, size - 96 * 1024); // last 96 KiB
+      const fd = fs.openSync(logPath, "r");
+      const buf = Buffer.alloc(size - start);
+      fs.readSync(fd, buf, 0, buf.length, start);
+      fs.closeSync(fd);
+      const tail = buf
+        .toString("utf8")
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .slice(-80)
+        .join("\n");
+      if (tail !== splashLogTail) {
+        splashLogTail = tail;
+        splash.webContents.send("splash-log", tail);
+      }
+    } catch {
+      /* log file not created yet — keep polling */
+    }
+  }, 800);
+}
+
+function stopSplashLogTailer() {
+  if (splashLogTimer) {
+    clearInterval(splashLogTimer);
+    splashLogTimer = null;
+  }
+  splashLogTail = "";
+}
+
+function showSplash() {
+  splash = new BrowserWindow({
+    width: 620,
+    height: 480,
+    frame: false,
+    resizable: false,
+    show: true,
+    backgroundColor: "#0a0f1e",
+    webPreferences: {
+      preload: path.join(__dirname, "preloadSplash.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  splash.loadFile(path.join(__dirname, "splash.html"));
+  splash.webContents.on("did-finish-load", startSplashLogTailer);
+  splash.on("closed", () => {
+    stopSplashLogTailer();
+    splash = null;
+  });
+}
+
+function hideSplash() {
+  if (splash && !splash.isDestroyed()) splash.destroy();
+}
+
+// ---------------------------------------------------------------------------
 // Window
 // ---------------------------------------------------------------------------
+
+function showWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -198,6 +297,7 @@ function createWindow() {
     title: APP_NAME,
     backgroundColor: "#0a0f1e",
     autoHideMenuBar: true,
+    icon: path.join(process.resourcesPath, "icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -206,9 +306,45 @@ function createWindow() {
     },
   });
   mainWindow.loadURL(backendUrl);
+  mainWindow.on("close", (event) => {
+    // Close hides to the system tray; use tray "Exit" (or the backend exiting) to quit.
+    if (!quitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+// ---------------------------------------------------------------------------
+// System tray
+// ---------------------------------------------------------------------------
+
+function createTray() {
+  const iconPath = path.join(process.resourcesPath, "icon.ico");
+  let image = nativeImage.createFromPath(iconPath);
+  if (image.isEmpty()) {
+    image = nativeImage.createFromPath(path.join(__dirname, "build", "icon.ico"));
+  }
+  tray = new Tray(image);
+  tray.setToolTip(APP_NAME);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open CCTV Analyzer", click: showWindow },
+      { type: "separator" },
+      {
+        label: "Exit",
+        click: () => {
+          quitting = true;
+          killBackend();
+          app.quit();
+        },
+      },
+    ])
+  );
+  tray.on("double-click", showWindow);
 }
 
 // ---------------------------------------------------------------------------
@@ -219,13 +355,11 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
+    showWindow();
   });
 
   app.whenReady().then(async () => {
+    createTray();
     let ready = false;
     if (DEV) {
       backendUrl = process.env.CCTV_BACKEND_URL || DEFAULT_DEV_URL;
@@ -247,16 +381,22 @@ if (!app.requestSingleInstanceLock()) {
       }
     } else {
       seedModels();
+      showSplash();
       const result = await startBackend();
       if (!result.ok) {
+        hideSplash();
         dialog.showErrorBox("Startup failed", result.error);
         app.quit();
         return;
       }
       try {
-        // first backend start may import torch + CUDA libs: allow generous time
-        await waitForHealth(result.url, 180000);
+        // No hard timeout in production: first launch may be slow while the
+        // antivirus scans the bundled engine. We only fail if the process
+        // actually exits.
+        await waitForHealth(result.url);
+        ready = true;
       } catch (err) {
+        hideSplash();
         dialog.showErrorBox(
           "Startup failed",
           `${err.message}\nSee ${path.join(userDataDir(), "logs", "backend.log")} for details.`
@@ -267,15 +407,17 @@ if (!app.requestSingleInstanceLock()) {
       }
     }
 
+    hideSplash();
     createWindow();
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+      showWindow();
     });
   });
 
+  // Closing the window hides to tray; the app keeps running in the background.
   app.on("window-all-closed", () => {
-    app.quit();
+    /* stay in tray */
   });
 
   app.on("before-quit", () => {

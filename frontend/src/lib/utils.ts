@@ -49,3 +49,14 @@ export const EVENT_TYPE_COLORS: Record<string, string> = {
   person_loitering: "bg-violet-500/15 text-violet-400 border-violet-500/30",
   person_running: "bg-red-500/15 text-red-400 border-red-500/30",
 };
+
+export const EVENT_TYPE_SOLID: Record<string, string> = {
+  person_entered: "bg-emerald-500",
+  person_exited: "bg-rose-500",
+  person_appeared: "bg-sky-500",
+  person_disappeared: "bg-orange-500",
+  person_moved: "bg-blue-500",
+  person_carrying: "bg-amber-500",
+  person_loitering: "bg-violet-500",
+  person_running: "bg-red-500",
+};

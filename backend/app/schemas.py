@@ -26,6 +26,7 @@ class VideoOut(BaseModel):
     fps_processed: float
     error: str | None = None
     created_at: datetime
+    video_url: str | None = None
 
 
 class UploadResponse(BaseModel):
@@ -55,9 +56,19 @@ class PersonOut(BaseModel):
     video_id: int | None
     first_seen: float
     last_seen: float
+    name: str | None = None
     thumbnail_url: str | None = None
     event_count: int = 0
     last_event_type: str | None = None
+
+
+class PersonPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=128)
+
+
+class SimilarPersonOut(BaseModel):
+    person: PersonOut
+    score: float
 
 
 # --------------------------------------------------------------------------
@@ -77,7 +88,15 @@ class EventOut(BaseModel):
     thumbnail_url: str | None = None
     objects: list[str] = Field(default_factory=list)
     activity: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    note: str | None = None
     created_at: datetime
+
+
+class EventPatch(BaseModel):
+    tags: list[str] | None = Field(default=None, max_length=20)
+    tag: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class SearchResult(BaseModel):

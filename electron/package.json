@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "dist": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis",
+    "dist:signed": "node ../scripts/assert-sign-env.cjs && electron-builder --win nsis"
   },
   "devDependencies": {
     "electron": "^37.2.0",
@@ -24,16 +25,40 @@
     "files": [
       "main.cjs",
       "preload.cjs",
-      "package.json"
+      "preloadSplash.cjs",
+      "package.json",
+      "build/icon.ico",
+      "splash.html"
     ],
     "npmRebuild": false,
     "extraResources": [
       {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      },
+      {
         "from": "../dist-exe/backend",
         "to": "backend",
         "filter": [
-          "**/*"
+          "**/*",
+          "!storage/**",
+          "!models/**",
+          "!_internal/torch/lib/**",
+          "!_internal/torch/bin/**",
+          "!_internal/av.libs/**"
         ]
+      },
+      {
+        "from": "../dist-exe/backend/_internal/torch/lib",
+        "to": "backend/_internal/torch/lib"
+      },
+      {
+        "from": "../dist-exe/backend/_internal/torch/bin",
+        "to": "backend/_internal/torch/bin"
+      },
+      {
+        "from": "../dist-exe/backend/_internal/av.libs",
+        "to": "backend/_internal/av.libs"
       }
     ],
     "win": {

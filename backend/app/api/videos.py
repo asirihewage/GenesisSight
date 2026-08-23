@@ -11,12 +11,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.utils import serialize_events, status_response
+from app.api.utils import serialize_event, serialize_events, status_response, video_url
 from app.config import settings
 from app.core.worker import worker
 from app.database import get_db
 from app.models import Event, Person, Video
-from app.schemas import EventOut, StatusResponse, UploadResponse, VideoOut
+from app.schemas import EventOut, EventPatch, StatusResponse, UploadResponse, VideoOut
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,10 @@ async def get_status(video_id: int, db: Session = Depends(get_db)) -> StatusResp
 @router.get("", response_model=list[VideoOut])
 async def list_videos(db: Session = Depends(get_db)) -> list[VideoOut]:
     videos = db.scalars(select(Video).order_by(Video.created_at.desc())).all()
-    return [VideoOut.model_validate(v) for v in videos]
+    out = [VideoOut.model_validate(v) for v in videos]
+    for v, o in zip(videos, out):
+        o.video_url = video_url(v)
+    return out
 
 
 @router.get("/{video_id}", response_model=VideoOut)
@@ -99,7 +102,9 @@ async def get_video(video_id: int, db: Session = Depends(get_db)) -> VideoOut:
     video = db.get(Video, video_id)
     if video is None:
         raise HTTPException(status_code=404, detail="Video not found")
-    return VideoOut.model_validate(video)
+    out = VideoOut.model_validate(video)
+    out.video_url = video_url(video)
+    return out
 
 
 @router.get("/{video_id}/events", response_model=list[EventOut])
@@ -121,6 +126,39 @@ async def list_events(
         stmt = stmt.where(Event.event_type == event_type)
     stmt = stmt.order_by(Event.timestamp.asc()).offset(offset).limit(limit)
     return serialize_events(db, list(db.scalars(stmt)))
+
+
+@router.patch("/{video_id}/events/{event_id}", response_model=EventOut)
+async def patch_event(
+    video_id: int,
+    event_id: int,
+    patch: EventPatch,
+    db: Session = Depends(get_db),
+) -> EventOut:
+    """Add/update user tags and notes on an event (fed back into search)."""
+    event = db.get(Event, event_id)
+    if event is None or event.video_id != video_id:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if patch.tags is not None:
+        event.tags = [t.strip() for t in patch.tags if t and t.strip()]
+    elif patch.tag is not None:
+        tag = patch.tag.strip()
+        current = list(event.tags or [])
+        if tag:
+            if tag not in current:
+                current.append(tag)
+        else:
+            current = []
+        event.tags = current
+    if patch.note is not None:
+        event.note = patch.note.strip() or None
+    if event.embedding is not None:
+        # annotations change search semantics — invalidate the stale cache
+        event.embedding = None
+    db.commit()
+    db.refresh(event)
+    return serialize_event(db, event.id)  # type: ignore[return-value]
 
 
 @router.delete("/{video_id}")

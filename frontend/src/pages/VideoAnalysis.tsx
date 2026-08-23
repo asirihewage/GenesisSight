@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,7 +8,7 @@ import { useEvents, usePersons, useStats, useStatus, useVideo } from "@/hooks/us
 import { queryKeys } from "@/hooks/useApi";
 import { useSocket } from "@/hooks/useSocket";
 import { api } from "@/lib/api";
-import { EVENT_TYPE_LABELS, formatDuration, formatTimestamp } from "@/lib/utils";
+import { EVENT_TYPE_LABELS, EVENT_TYPE_SOLID, formatDuration, formatTimestamp } from "@/lib/utils";
 import type { ProgressPayload } from "@/types";
 import { StatusBadge, VideoCard } from "@/components/VideoCard";
 import { EventItem } from "@/components/EventItem";
@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export function VideoAnalysis() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +36,16 @@ export function VideoAnalysis() {
   const [liveProgress, setLiveProgress] = useState<ProgressPayload | null>(null);
   const [personFilter, setPersonFilter] = useState<number | "all">("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const seekTo = useCallback((ts: number) => {
+    const el = videoRef.current;
+    if (el && Number.isFinite(ts)) {
+      el.currentTime = Math.max(0, Math.min(ts, el.duration || ts));
+      el.play().catch(() => {});
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   // live updates from the WebSocket
   useEffect(() => {
@@ -146,6 +157,56 @@ export function VideoAnalysis() {
         </div>
       )}
 
+      {/* video player with event timeline */}
+      {video.video_url && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Play className="h-4 w-4 text-primary" />
+              Player
+              {(events ?? []).length > 0 && video.duration > 0 && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  · click a dot or event to jump to that moment
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <video
+              ref={videoRef}
+              src={video.video_url}
+              controls
+              preload="metadata"
+              className="max-h-[480px] w-full rounded-lg bg-black"
+            />
+            {(events ?? []).length > 0 && video.duration > 0 && (
+              <div className="relative h-9 w-full">
+                <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-muted" />
+                {(events ?? []).map((e) => {
+                  const pct = Math.min(100, Math.max(0, (e.timestamp / video.duration) * 100));
+                  return (
+                    <button
+                      key={e.id}
+                      title={`${formatTimestamp(e.timestamp)} — ${EVENT_TYPE_LABELS[e.event_type] ?? e.event_type}`}
+                      onClick={() => seekTo(e.timestamp)}
+                      className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${pct}%` }}
+                    >
+                      <span
+                        className={cn(
+                          "block h-3 w-3 rounded-full border border-background shadow transition-transform group-hover:scale-125",
+                          EVENT_TYPE_SOLID[e.event_type] ?? "bg-primary",
+                        )}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* live processing status */}
       {(processing || status?.status === "uploaded") && (
         <Card>
@@ -254,7 +315,7 @@ export function VideoAnalysis() {
         ) : (
           <div className="space-y-3">
             {filteredEvents.map((e) => (
-              <EventItem key={e.id} event={e} />
+              <EventItem key={e.id} event={e} onSeek={seekTo} allowAnnotate />
             ))}
           </div>
         )}

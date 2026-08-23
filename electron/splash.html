@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>CCTV Analyzer</title>
+    <style>
+      html, body { height: 100%; margin: 0; background: #0a0f1e; color: #e2e8f0; font-family: "Segoe UI", system-ui, sans-serif; }
+      body { display: flex; flex-direction: column; box-sizing: border-box; padding: 20px 22px; gap: 14px; user-select: none; }
+      .head { display: flex; align-items: center; gap: 14px; }
+      .spinner { width: 34px; height: 34px; flex: none; border: 4px solid #1e293b; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      h1 { margin: 0; font-size: 15px; font-weight: 600; }
+      p { margin: 2px 0 0; font-size: 12px; color: #94a3b8; }
+      #log {
+        flex: 1; min-height: 0; overflow-y: auto; margin: 0;
+        background: #060a14; border: 1px solid #1e293b; border-radius: 8px;
+        padding: 10px 12px; font-family: Consolas, "Cascadia Mono", monospace;
+        font-size: 11px; line-height: 1.55; color: #94a3b8; white-space: pre-wrap; word-break: break-all;
+      }
+      #log:empty::before { content: "waiting for engine logs…"; color: #475569; }
+      #statusbar { font-size: 11px; color: #64748b; }
+      .ok { color: #34d399; }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <div class="spinner"></div>
+      <div>
+        <h1>Starting CCTV Analyzer…</h1>
+        <p>The first launch can take a couple of minutes while your antivirus scans the bundled AI engine — live progress below.</p>
+      </div>
+    </div>
+    <pre id="log"></pre>
+    <div id="statusbar">engine boot…</div>
+  </body>
+  <script>
+    const logEl = document.getElementById("log");
+    const statusEl = document.getElementById("statusbar");
+    window.cctvSplash.onLog((text) => {
+      logEl.textContent = text;
+      logEl.scrollTop = logEl.scrollHeight;
+      const last = text.split("\n").filter(Boolean).pop() || "";
+      statusEl.textContent = "engine boot… " + last;
+      statusEl.className = "";
+    });
+  </script>
+</html>

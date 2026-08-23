@@ -1,57 +1,95 @@
 import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FileVideo, Loader2, UploadCloud } from "lucide-react";
+import { CheckCircle2, FileVideo, FolderOpen, Loader2, UploadCloud } from "lucide-react";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/hooks/useApi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 const ACCEPTED = [".avi", ".mp4", ".mkv", ".mov", ".m4v"];
 const ACCEPTED_STR = "video/avi,.avi,video/mp4,.mp4,video/x-matroska,.mkv,video/quicktime,.mov,.m4v";
 
+interface UploadedRow {
+  id: number;
+  filename: string;
+  status: "uploaded" | "failed";
+  error?: string;
+}
+
 export function Upload() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [overall, setOverall] = useState(0);
+  const [current, setCurrent] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [autoAnalyze, setAutoAnalyze] = useState(true);
+  const [done, setDone] = useState<UploadedRow[]>([]);
 
   const analyzeMutation = useMutation({
     mutationFn: api.analyze,
   });
 
+  const validFiles = useCallback((files: File[] | FileList): File[] => {
+    const list = Array.from(files).filter((f) => {
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      return ACCEPTED.includes(ext);
+    });
+    if (list.length !== Array.from(files).length) {
+      setError("Some files were skipped — allowed types: AVI, MP4, MKV, MOV, M4V");
+    }
+    return list;
+  }, []);
+
   const handleFiles = useCallback(
-    async (files: FileList | File[]) => {
-      const file = Array.from(files)[0];
-      if (!file) return;
-      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-      if (!ACCEPTED.includes(ext)) {
-        setError(`Unsupported file type "${ext}". Allowed: ${ACCEPTED.join(", ")}`);
+    async (files: File[] | FileList) => {
+      const list = validFiles(files);
+      if (list.length === 0) {
+        setError("No supported video files selected.");
         return;
       }
       setError(null);
       setUploading(true);
-      setProgress(0);
-      try {
-        const res = await api.uploadVideo(file, setProgress);
-        queryClient.invalidateQueries({ queryKey: queryKeys.videos });
-        if (autoAnalyze) {
-          await analyzeMutation.mutateAsync(res.id);
+      setDone([]);
+      setOverall(0);
+      const rows: UploadedRow[] = [];
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i];
+        setCurrent(file.name);
+        try {
+          const res = await api.uploadVideo(file, (pct) => {
+            setOverall(Math.round(((i + pct / 100) / list.length) * 100));
+          });
+          queryClient.invalidateQueries({ queryKey: queryKeys.videos });
+          if (autoAnalyze) {
+            try {
+              await analyzeMutation.mutateAsync(res.id);
+            } catch {
+              /* analysis queue failure is non-fatal for the upload */
+            }
+          }
+          rows.push({ id: res.id, filename: file.name, status: "uploaded" });
+        } catch (e) {
+          rows.push({
+            id: rows.length + 1,
+            filename: file.name,
+            status: "failed",
+            error: e instanceof Error ? e.message : "Upload failed",
+          });
         }
-        navigate(`/videos/${res.id}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Upload failed");
-        setUploading(false);
+        setDone([...rows]);
+        setOverall(Math.round(((i + 1) / list.length) * 100));
       }
+      setUploading(false);
+      setCurrent("");
     },
-    [autoAnalyze, analyzeMutation, navigate, queryClient],
+    [autoAnalyze, analyzeMutation, queryClient, validFiles],
   );
 
   return (
@@ -65,15 +103,15 @@ export function Upload() {
         <CardHeader>
           <CardTitle>Upload video</CardTitle>
           <CardDescription>
-            Large files are uploaded chunk-by-chunk. Analysis starts automatically on the GPU.
+            Drop files (or a whole folder) — analysis starts automatically on the GPU.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div
             role="button"
             tabIndex={0}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOver(true);
@@ -85,7 +123,7 @@ export function Upload() {
               handleFiles(e.dataTransfer.files);
             }}
             className={cn(
-              "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-6 py-16 text-center transition-colors",
+              "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed px-6 py-14 text-center transition-colors",
               dragOver
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary/50 hover:bg-accent/50",
@@ -95,15 +133,17 @@ export function Upload() {
               <>
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <div className="w-full max-w-xs space-y-2">
-                  <Progress value={progress} />
-                  <div className="text-sm text-muted-foreground">Uploading… {progress}%</div>
+                  <Progress value={overall} />
+                  <div className="truncate text-sm text-muted-foreground">
+                    Uploading {current}… {overall}%
+                  </div>
                 </div>
               </>
             ) : (
               <>
                 <UploadCloud className="h-12 w-12 text-primary" />
                 <div className="space-y-1">
-                  <div className="text-sm font-medium">Drag & drop a video here</div>
+                  <div className="text-sm font-medium">Drag & drop videos here</div>
                   <div className="text-xs text-muted-foreground">
                     or click to browse · {ACCEPTED.join(" ")}
                   </div>
@@ -112,12 +152,55 @@ export function Upload() {
             )}
           </div>
           <input
-            ref={inputRef}
+            ref={fileInputRef}
             type="file"
             accept={ACCEPTED_STR}
+            multiple
             className="hidden"
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
           />
+          <input
+            ref={folderInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={(e) => e.target.files && handleFiles(e.target.files)}
+            {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          />
+
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2.5">
+            <div className="text-sm">
+              <span className="font-medium">Upload an entire folder</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                e.g. a DVR export directory — every supported file is uploaded
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => folderInputRef.current?.click()}>
+              <FolderOpen className="mr-1.5 h-4 w-4" /> Choose folder…
+            </Button>
+          </div>
+
+          {done.length > 0 && (
+            <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
+              {done.map((row) => (
+                <div
+                  key={`${row.id}-${row.filename}`}
+                  className="flex items-center justify-between gap-3 rounded px-2 py-1 text-sm"
+                >
+                  <span className="truncate text-muted-foreground">{row.filename}</span>
+                  {row.status === "uploaded" ? (
+                    <Link to={`/videos/${row.id}`} className="shrink-0 text-primary hover:underline">
+                      View →
+                    </Link>
+                  ) : (
+                    <span className="shrink-0 text-destructive" title={row.error}>
+                      failed
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && (
             <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">

@@ -11,6 +11,7 @@ export interface Video {
   fps_processed: number;
   error: string | null;
   created_at: string;
+  video_url: string | null;
 }
 
 export interface UploadResponse {
@@ -35,9 +36,15 @@ export interface Person {
   video_id: number | null;
   first_seen: number;
   last_seen: number;
+  name: string | null;
   thumbnail_url: string | null;
   event_count: number;
   last_event_type: string | null;
+}
+
+export interface SimilarPerson {
+  person: Person;
+  score: number;
 }
 
 export interface CctvEvent {
@@ -52,6 +59,8 @@ export interface CctvEvent {
   thumbnail_url: string | null;
   objects: string[];
   activity: string | null;
+  tags: string[];
+  note: string | null;
   created_at: string;
 }
 
@@ -104,4 +113,12 @@ export interface ProgressPayload {
   progress: number;
   current_stage: string;
   fps_processed: number;
+}
+
+export interface SetupStatus {
+  complete: boolean;
+  ollama_skipped: boolean;
+  system: { backend_ok: boolean; cuda: boolean; storage_writable: boolean; model_dir: string; storage_dir: string };
+  yolo: { ready: boolean; path: string; download: { state: string; done: number; total: number; error: string | null } };
+  ollama: { installed: boolean; install_path: string; reachable: boolean; vlm_model: string; embed_model: string; vlm_ready: boolean; installed_models: string[]; pull: { state: string; error: string | null; log: string }; install: { state: string; error: string | null } };
 }

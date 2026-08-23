@@ -1,13 +1,15 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, UploadCloud, Search, Settings, Video } from "lucide-react";
+import { Info, LayoutDashboard, Search, Settings, UploadCloud, Users, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/useSocket";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/upload", label: "Upload", icon: UploadCloud },
+  { to: "/people", label: "People", icon: Users },
   { to: "/search", label: "Search", icon: Search },
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/about", label: "About", icon: Info },
 ];
 
 export function Sidebar() {

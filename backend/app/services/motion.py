@@ -26,6 +26,9 @@ class MotionDetector:
 
     def analyze(self, frame: np.ndarray) -> tuple[bool, bool]:
         """Return (has_motion, is_scene_change). Updates internal state."""
+        if frame is None or frame.ndim != 3 or frame.shape[0] < 1 or frame.shape[1] < 1:
+            # malformed frame (DVR artifacts) — report no motion, keep state
+            return False, False
         gray = self._resize_gray(frame, self.scale)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
 

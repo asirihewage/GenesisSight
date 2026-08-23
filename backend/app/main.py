@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import health, persons, search, videos, ws
+from app.api import health, persons, search, setup, videos, ws
 from app.config import settings
 from app.core.worker import worker
 from app.database import init_db
@@ -22,6 +22,19 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
 )
 logger = logging.getLogger("app")
+
+# File logging: the packaged (windowed) app has no console, so everything goes
+# to <storage>/logs/app.log as well.
+try:
+    _logs_dir = Path(settings.storage_dir) / "logs"
+    _logs_dir.mkdir(parents=True, exist_ok=True)
+    _file_handler = logging.FileHandler(_logs_dir / "app.log", encoding="utf-8")
+    _file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"))
+    for _lg_name in ("", "app", "uvicorn", "uvicorn.error", "uvicorn.access"):
+        logging.getLogger(_lg_name).addHandler(_file_handler)
+        logging.getLogger(_lg_name).propagate = True
+except Exception:
+    logger.exception("Could not set up file logging")
 
 
 @asynccontextmanager
@@ -54,6 +67,7 @@ app.include_router(persons.router)
 app.include_router(search.router)
 app.include_router(health.router)
 app.include_router(ws.router)
+app.include_router(setup.router)
 
 
 @app.exception_handler(Exception)

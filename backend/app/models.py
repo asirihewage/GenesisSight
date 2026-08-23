@@ -54,6 +54,8 @@ class Person(Base):
         ForeignKey("videos.id", ondelete="CASCADE"), nullable=True, index=True
     )
     track_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # user-assigned name ("tag") for this person
+    name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # ReID embedding (list[float]); may be None if ReID is disabled
     embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)
     first_seen: Mapped[float] = mapped_column(Float, default=0.0)
@@ -86,6 +88,9 @@ class Event(Base):
     objects: Mapped[list | None] = mapped_column(JSON, nullable=True)
     activity: Mapped[str | None] = mapped_column(String(256), nullable=True)
     details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # user annotations, fed back into semantic search
+    tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)  # search cache
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

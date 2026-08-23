@@ -34,6 +34,7 @@ class ReIDEngine:
         self._model = None
         self._device = "cpu"
         self.dim = 0
+        self._in_w, self._in_h = 224, 224
 
         if engine == "disabled":
             logger.warning("ReID disabled by config: identity = ByteTrack id")
@@ -69,6 +70,7 @@ class ReIDEngine:
                 self._model = model
                 self.backend = "osnet"
                 self.dim = 512
+                self._in_w, self._in_h = 128, 256
                 logger.info("ReID backend: OSNet x1_0 on %s", self._device)
                 return
             except ImportError:
@@ -103,12 +105,16 @@ class ReIDEngine:
         """Embed person crops -> (N, dim) L2-normalized matrix."""
         if not self.enabled() or not crops:
             return np.zeros((len(crops), self.dim), dtype=np.float32)
-
+        images = []
+        for c in crops:
+            if c is None or c.ndim != 3 or c.shape[0] < 1 or c.shape[1] < 1:
+                images.append(np.zeros((self._in_h, self._in_w, 3), dtype=np.uint8))
+            else:
+                images.append(self._preprocess(c))
         import torch
         import torch.nn.functional as F
 
-        images = np.stack([self._preprocess(c) for c in crops])  # (N,3,H,W)
-        tensor = torch.from_numpy(images).to(self._device)
+        tensor = torch.from_numpy(np.stack(images)).to(self._device)
         with torch.no_grad():
             feats = self._model(tensor)
         feats = F.normalize(feats, p=2, dim=1).cpu().numpy()

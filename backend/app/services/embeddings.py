@@ -60,10 +60,10 @@ class SearchService:
         return list(db.scalars(stmt))
 
     async def _ensure_event_embeddings(self, db: Session, events: list[Event]) -> None:
-        missing = [e for e in events if not e.embedding and (e.description or "")]
+        missing = [e for e in events if not e.embedding and self._text_for(e)]
         if not missing:
             return
-        texts = [e.description[:512] for e in missing]
+        texts = [self._text_for(e)[:512] for e in missing]
         embs = await ollama_client.embed(texts)
         if embs is None:
             return
@@ -73,6 +73,19 @@ class SearchService:
             db.commit()
         except Exception:
             db.rollback()
+
+    @staticmethod
+    def _text_for(e: Event) -> str:
+        parts = [e.description or "", e.event_type or ""]
+        if e.objects:
+            parts.append(" ".join(str(o) for o in e.objects))
+        if e.activity:
+            parts.append(e.activity)
+        if e.tags:
+            parts.append(" ".join(str(t) for t in e.tags))
+        if e.note:
+            parts.append(e.note)
+        return " ".join(p for p in parts if p)
 
     @staticmethod
     def _score_cosine(events: list[Event], query_emb: np.ndarray) -> list[float]:
@@ -97,6 +110,12 @@ class SearchService:
         out: list[float] = []
         for e in events:
             text = f"{e.description or ''} {e.event_type or ''} {e.objects or ''}"
+            if e.activity:
+                text += f" {e.activity}"
+            if e.tags:
+                text += f" {' '.join(str(t) for t in e.tags)}"
+            if e.note:
+                text += f" {e.note}"
             d_vec = _tf(_char_ngrams(_norm(text), n=3))
             denom = _norm_len(d_vec) * q_len
             out.append(_dot(d_vec, q_vec) / denom if denom > 0 else 0.0)
@@ -116,6 +135,8 @@ class SearchService:
             thumbnail_url=_media_url(e.thumbnail_path),
             objects=(e.objects or []) if isinstance(e.objects, list) else [],
             activity=e.activity,
+            tags=[str(t) for t in (e.tags if isinstance(e.tags, list) else [])],
+            note=e.note,
             created_at=e.created_at,
         )
 

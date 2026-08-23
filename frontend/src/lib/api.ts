@@ -1,4 +1,4 @@
-import type { Health, Person, CctvEvent, SearchResponse, StatusResponse, UploadResponse, Video, VideoStats } from "@/types";
+import type { Health, Person, SimilarPerson, CctvEvent, SearchResponse, SetupStatus, StatusResponse, UploadResponse, Video, VideoStats } from "@/types";
 
 const BASE = ""; // same origin (vite proxy / fastapi static)
 
@@ -61,6 +61,21 @@ export const api = {
     const qs = videoId ? `?video_id=${videoId}` : "";
     return request<Person[]>(`/api/persons${qs}`);
   },
+  renamePerson: (id: number, name: string) =>
+    request<Person>(`/api/persons/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }),
+  personSimilar: (id: number) => request<SimilarPerson[]>(`/api/persons/${id}/similar`),
+
+  // event annotations (tags / notes are fed back into semantic search)
+  patchEvent: (videoId: number, eventId: number, patch: { tags?: string[]; tag?: string; note?: string }) =>
+    request<CctvEvent>(`/api/videos/${videoId}/events/${eventId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }),
 
   // search
   search: (q: string, videoId?: number) => {
@@ -71,6 +86,18 @@ export const api = {
 
   // health
   health: () => request<Health>("/api/health"),
+
+  // first-run setup wizard
+  setupStatus: () => request<SetupStatus>("/api/setup/status"),
+  setupDownloadYolo: () => request<{ ok: boolean; started: boolean }>("/api/setup/yolo/download", { method: "POST" }),
+  setupPullOllama: () => request<{ ok: boolean; started: boolean }>("/api/setup/ollama/pull", { method: "POST" }),
+  setupInstallOllama: () => request<{ ok: boolean; started: boolean }>("/api/setup/ollama/install", { method: "POST" }),
+  setupComplete: (ollamaSkipped: boolean) =>
+    request<{ ok: boolean }>("/api/setup/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ollama_skipped: ollamaSkipped }),
+    }),
 };
 
 export function wsUrl(): string {
