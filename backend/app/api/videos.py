@@ -181,6 +181,76 @@ async def delete_video(video_id: int, db: Session = Depends(get_db)) -> dict:
     return {"ok": True, "id": video_id, "message": "Video and related data deleted successfully"}
 
 
+# -- directory watching ---------------------------------------------------
+WATCHED_EXTENSIONS = {".avi", ".mp4", ".mkv", ".mov", ".m4v"}
+
+
+@router.get("/watch-dir", response_model=dict)
+async def get_watch_dir() -> dict:
+    """Get the current default watch directory setting."""
+    return {
+        "default_watch_dir": settings.default_watch_dir,
+        "auto_scan_new_videos": settings.auto_scan_new_videos,
+    }
+
+
+@router.post("/watch-dir", response_model=dict)
+async def set_watch_dir(dir_path: str) -> dict:
+    """Set the default watch directory. Empty string disables watching."""
+    settings.default_watch_dir = dir_path.strip() if dir_path else ""
+    # Reload settings to pick up the new value
+    get_settings.cache_clear()
+    settings = get_settings()
+    return {
+        "default_watch_dir": settings.default_watch_dir,
+        "auto_scan_new_videos": settings.auto_scan_new_videos,
+        "message": f"Watch directory set to: {settings.default_watch_dir or 'disabled'}",
+    }
+
+
+@router.post("/watch-dir/scan", response_model=dict)
+async def scan_watch_dir(db: Session = Depends(get_db)) -> dict:
+    """Manually trigger a scan of the watch directory for new videos."""
+    watch_dir = Path(settings.default_watch_dir) if settings.default_watch_dir else Path(settings.storage_dir)
+    if not watch_dir.exists():
+        return {"found": 0, "added": 0, "message": "Watch directory does not exist"}
+
+    added = 0
+    # Find all supported video files in the watch directory (recursive)
+    for video_file in watch_dir.rglob("*"):
+        if video_file.suffix.lower() not in WATCHED_EXTENSIONS:
+            continue
+        # Check if already in database
+        existing = db.scalar(select(Video).where(Video.filename == video_file.name))
+        if existing:
+            continue
+        # Create new video entry
+        rel = video_file.relative_to(watch_dir.parent)
+        dest = Path(settings.storage_dir) / "uploads" / f"{uuid.uuid4().hex}_{video_file.name}"
+        # Move/copy file to uploads directory
+        import shutil
+        shutil.copy2(str(video_file), str(dest))
+        video = Video(
+            filename=video_file.name,
+            filepath=str(dest),
+            status="uploaded",
+        )
+        db.add(video)
+        db.commit()
+        db.refresh(video)
+        # Enqueue for analysis if auto-scan is enabled
+        if settings.auto_scan_new_videos:
+            worker.enqueue(video.id)
+        added += 1
+
+    return {
+        "watch_dir": str(watch_dir),
+        "found": added,
+        "added": added,
+        "message": f"Found {added} new video(s) in watch directory",
+    }
+
+
 @router.get("/{video_id}/stats")
 async def video_stats(video_id: int, db: Session = Depends(get_db)) -> dict:
     video = db.get(Video, video_id)
