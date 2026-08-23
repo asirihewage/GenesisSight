@@ -127,7 +127,7 @@ export function About() {
           </p>
           <p>
             Creator and lead developer of genesisSight — a local AI CCTV analysis platform built with
-            YOLO11x, ByteTrack, Re-ID, and Qwen2.5-VL models, running entirely offline.
+            computer vision models, running entirely offline.
           </p>
         </CardContent>
       </Card>

@@ -103,10 +103,6 @@ export function Settings() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-xs text-muted-foreground">
-          <p>• Analysis pipeline: motion gate → YOLO11x (batched) → ByteTrack → Re-ID → rule events → Qwen2.5-VL.</p>
-          <p>• The VLM only receives important event keyframes, never every frame.</p>
-          <p>• Search uses Ollama embeddings when available, keyword matching otherwise.</p>
-          <p>• Database: SQLite (PostgreSQL-compatible schema). Set <code className="rounded bg-muted px-1">DATABASE_URL</code> in .env to switch.</p>
           <Separator className="my-2" />
           <p className="flex items-center gap-1"><FolderOpen className="h-3.5 w-3.5" /> Storage path: {health.storage_dir}</p>
         </CardContent>

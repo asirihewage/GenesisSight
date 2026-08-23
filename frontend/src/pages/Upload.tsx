@@ -236,9 +236,7 @@ export function Upload() {
           <div className="flex items-start gap-3 rounded-md border border-border bg-muted/40 px-3 py-3 text-xs text-muted-foreground">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
             <span>
-              <span className="font-medium text-foreground">Local AI pipeline:</span> YOLO11x detection →
-              ByteTrack tracking → person re-identification → event timeline → Qwen2.5-VL descriptions
-              (via Ollama). Nothing leaves this PC.
+              Analysis runs entirely on this PC — no video data leaves the machine.
             </span>
           </div>
         </CardContent>
