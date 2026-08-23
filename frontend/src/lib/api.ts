@@ -33,6 +33,13 @@ export const api = {
   analyze: (id: number) => request<StatusResponse>(`/api/videos/${id}/analyze`, { method: "POST" }),
   deleteVideo: (id: number) => request<{ ok: boolean }>(`/api/videos/${id}`, { method: "DELETE" }),
 
+  // directory watching
+  getWatchDir: () => request<{ default_watch_dir: string; auto_scan_new_videos: boolean }>("/api/videos/watch-dir"),
+  setWatchDir: (dir: string) => request<{ default_watch_dir: string; auto_scan_new_videos: boolean; message: string }>("/api/videos/watch-dir", { method: "POST" }),
+  scanWatchDir: () => request<{ found: number; added: number; message: string }>("/api/videos/watch-dir/scan", { method: "POST" }),
+  setAutoScanToggle: (enabled: boolean) =>
+    request<{ auto_scan_new_videos: boolean; message: string }>("/api/videos/watch-dir/autoscan", { method: "POST", body: JSON.stringify({ auto_scan_new_videos: enabled }) }),
+
   // upload with progress
   uploadVideo: (file: File, onProgress?: (pct: number) => void) =>
     new Promise<UploadResponse>((resolve, reject) => {
@@ -86,6 +93,11 @@ export const api = {
 
   // health
   health: () => request<Health>("/api/health"),
+
+  // directory watching
+  getWatchDir: () => request<{ default_watch_dir: string; auto_scan_new_videos: boolean }>("/api/videos/watch-dir"),
+  setWatchDir: (dir: string) => request<{ default_watch_dir: string; auto_scan_new_videos: boolean; message: string }>("/api/videos/watch-dir", { method: "POST" }),
+  scanWatchDir: () => request<{ found: number; added: number; message: string }>("/api/videos/watch-dir/scan", { method: "POST" }),
 
   // first-run setup wizard
   setupStatus: () => request<SetupStatus>("/api/setup/status"),

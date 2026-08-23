@@ -213,7 +213,7 @@ async def scan_watch_dir(db: Session = Depends(get_db)) -> dict:
     """Manually trigger a scan of the watch directory for new videos."""
     watch_dir = Path(settings.default_watch_dir) if settings.default_watch_dir else Path(settings.storage_dir)
     if not watch_dir.exists():
-        return {"found": 0, "added": 0, "message": "Watch directory does not exist"}
+        return {"found": 0, "added": 0, "message": "Watch directory does not exist"
 
     added = 0
     # Find all supported video files in the watch directory (recursive)
@@ -248,6 +248,19 @@ async def scan_watch_dir(db: Session = Depends(get_db)) -> dict:
         "found": added,
         "added": added,
         "message": f"Found {added} new video(s) in watch directory",
+    }
+
+
+@router.post("/watch-dir/autoscan", response_model=dict)
+async def set_auto_scan_toggle(enabled: bool) -> dict:
+    """Enable or disable auto-scan for new videos in the watch directory."""
+    settings.auto_scan_new_videos = enabled
+    # Reload settings to pick up the new value
+    get_settings.cache_clear()
+    settings = get_settings()
+    return {
+        "auto_scan_new_videos": settings.auto_scan_new_videos,
+        "message": f"Auto-scan {'enabled' if enabled else 'disabled'}",
     }
 
 

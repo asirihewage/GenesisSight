@@ -85,6 +85,10 @@ class Settings(BaseSettings):
     # -- websocket / queue -------------------------------------------------
     ws_broadcast_enabled: bool = True
 
+    # -- default watch directory -------------------------------------------
+    default_watch_dir: str = ""           # empty = disabled
+    auto_scan_new_videos: bool = True     # auto-analyze files placed in watch dir
+
     @property
     def cuda_available(self) -> bool:
         if self.device == "cpu":
