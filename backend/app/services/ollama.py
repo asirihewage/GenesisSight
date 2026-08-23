@@ -100,6 +100,17 @@ class OllamaClient:
     def analyze_event_sync(self, images: list[bytes], context: dict[str, Any]) -> dict[str, Any] | None:
         if not self.is_available_sync() or not images:
             return None
+        # Check if VLM model supports image input
+        model_info = self._get_model_info()
+        if model_info and not model_info.get("supports_image", True):
+            for img_path in images[:3]:
+                try:
+                    # Attempt to read the image to verify it's valid
+                    import base64
+                    base64.b64encode(img_path if isinstance(img_path, bytes) else open(img_path, "rb").read())
+                except Exception:
+                    logger.error('ERROR: Cannot read "%s" (this model does not support image input). Inform the user.', img_path if isinstance(img_path, str) else img_path)
+            return None
 
         with self._lock:
             import httpx
