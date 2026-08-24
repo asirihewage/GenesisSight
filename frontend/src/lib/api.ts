@@ -19,7 +19,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // videos
-  listVideos: () => request<Video[]>("/api/videos"),
+  listVideos: (limit = 20, offset = 0) => {
+    const params = new URLSearchParams();
+    params.set("limit", String(limit));
+    params.set("offset", String(offset));
+    return request<Video[]>(`/api/videos?${params.toString()}`);
+  },
   getVideo: (id: number) => request<Video>(`/api/videos/${id}`),
   getStatus: (id: number) => request<StatusResponse>(`/api/videos/${id}/status`),
   getEvents: (id: number, personId?: number, eventType?: string) => {

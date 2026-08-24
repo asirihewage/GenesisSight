@@ -89,8 +89,17 @@ async def get_status(video_id: int, db: Session = Depends(get_db)) -> StatusResp
 
 
 @router.get("", response_model=list[VideoOut])
-async def list_videos(db: Session = Depends(get_db)) -> list[VideoOut]:
-    videos = db.scalars(select(Video).order_by(Video.created_at.desc())).all()
+async def list_videos(
+    db: Session = Depends(get_db),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[VideoOut]:
+    # Sort: completed/scanned videos first, then by creation date desc
+    query = select(Video).order_by(
+        Video.status != "completed",  # completed=true goes first (False=0, True=1, so !completed puts completed first)
+        Video.created_at.desc()
+    )
+    videos = db.scalars(query.offset(offset).limit(limit)).all()
     out = [VideoOut.model_validate(v) for v in videos]
     for v, o in zip(videos, out):
         o.video_url = video_url(v)
@@ -213,7 +222,7 @@ async def scan_watch_dir(db: Session = Depends(get_db)) -> dict:
     """Manually trigger a scan of the watch directory for new videos."""
     watch_dir = Path(settings.default_watch_dir) if settings.default_watch_dir else Path(settings.storage_dir)
     if not watch_dir.exists():
-        return {"found": 0, "added": 0, "message": "Watch directory does not exist"
+        return {"found": 0, "added": 0, "message": "Watch directory does not exist"}
 
     added = 0
     # Find all supported video files in the watch directory (recursive)
