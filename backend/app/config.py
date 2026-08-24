@@ -2,13 +2,17 @@
 
 All settings can be overridden via environment variables or a `.env` file at the
 project root (see `.env.example`). Pydantic-settings loads and validates them.
+Runtime settings (watch dir, detection prefs, language, scheduler) are persisted
+to a JSON file in the storage directory.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,10 +28,28 @@ IMAGES_DIR = STORAGE_DIR / "images"
 DATABASE_DIR = STORAGE_DIR / "database"
 MODELS_DIR = Path(os.getenv("MODEL_DIR", str(BASE_DIR / "models")))
 
+RUNTIME_SETTINGS_FILE = STORAGE_DIR / "runtime_settings.json"
+
 
 def default_database_url() -> str:
     DATABASE_DIR.mkdir(parents=True, exist_ok=True)
     return f"sqlite:///{(DATABASE_DIR / 'cctv.db').as_posix()}"
+
+
+def load_runtime_settings() -> dict[str, Any]:
+    """Load runtime settings from JSON file."""
+    if RUNTIME_SETTINGS_FILE.exists():
+        try:
+            return json.loads(RUNTIME_SETTINGS_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_runtime_settings(data: dict[str, Any]) -> None:
+    """Save runtime settings to JSON file."""
+    STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    RUNTIME_SETTINGS_FILE.write_text(json.dumps(data, indent=2))
 
 
 class Settings(BaseSettings):
@@ -85,21 +107,15 @@ class Settings(BaseSettings):
     # -- websocket / queue -------------------------------------------------
     ws_broadcast_enabled: bool = True
 
-    # -- default watch directory -------------------------------------------
+    # -- runtime settings (loaded from JSON, not env) ---------------------
     default_watch_dir: str = ""           # empty = disabled
     auto_scan_new_videos: bool = True     # auto-analyze files placed in watch dir
-
-    # -- detection preferences ---------------------------------------------
     detect_people: bool = True
     detect_vehicles: bool = True
     detect_animals: bool = False
-
-    # -- language ----------------------------------------------------------
-    language: str = "en"  # en, es, fr, de, zh, ja, ko, etc.
-
-    # -- auto-scan scheduler -----------------------------------------------
-    auto_scan_schedule: str = ""  # cron expression, e.g., "0 2 * * *" for daily at 2 AM
-    auto_scan_enabled: bool = False  # master switch for scheduled scans
+    language: str = "en"
+    auto_scan_schedule: str = ""
+    auto_scan_enabled: bool = False
 
     @property
     def cuda_available(self) -> bool:
@@ -126,9 +142,38 @@ class Settings(BaseSettings):
         return "cpu"
 
 
+_runtime_settings_cache: dict[str, Any] = {}
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # Load base settings from env/.env
+    base = Settings()
+    # Override with persisted runtime settings
+    runtime = load_runtime_settings()
+    for key, value in runtime.items():
+        if hasattr(base, key):
+            setattr(base, key, value)
+    return base
+
+
+def update_runtime_setting(key: str, value: Any) -> None:
+    """Update a single runtime setting and persist to JSON."""
+    global _runtime_settings_cache
+    runtime = load_runtime_settings()
+    runtime[key] = value
+    save_runtime_settings(runtime)
+    # Clear cache so next get_settings() picks up the change
+    get_settings.cache_clear()
+
+
+def update_runtime_settings(updates: dict[str, Any]) -> None:
+    """Update multiple runtime settings and persist to JSON."""
+    global _runtime_settings_cache
+    runtime = load_runtime_settings()
+    runtime.update(updates)
+    save_runtime_settings(runtime)
+    get_settings.cache_clear()
 
 
 settings = get_settings()

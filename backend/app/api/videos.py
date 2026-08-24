@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.utils import serialize_event, serialize_events, status_response, video_url
-from app.config import settings
+from app.config import settings, update_runtime_setting, update_runtime_settings
 from app.core.worker import worker
 from app.database import get_db
 from app.models import Event, Person, Video
@@ -217,9 +217,8 @@ async def get_watch_dir() -> dict:
 @router.post("/watch-dir", response_model=dict)
 async def set_watch_dir(dir_path: str) -> dict:
     """Set the default watch directory. Empty string disables watching."""
-    settings.default_watch_dir = dir_path.strip() if dir_path else ""
-    # Reload settings to pick up the new value
-    get_settings.cache_clear()
+    value = dir_path.strip() if dir_path else ""
+    update_runtime_setting("default_watch_dir", value)
     settings = get_settings()
     return {
         "default_watch_dir": settings.default_watch_dir,
@@ -274,9 +273,7 @@ async def scan_watch_dir(db: Session = Depends(get_db)) -> dict:
 @router.post("/watch-dir/autoscan", response_model=dict)
 async def set_auto_scan_toggle(enabled: bool) -> dict:
     """Enable or disable auto-scan for new videos in the watch directory."""
-    settings.auto_scan_new_videos = enabled
-    # Reload settings to pick up the new value
-    get_settings.cache_clear()
+    update_runtime_setting("auto_scan_new_videos", enabled)
     settings = get_settings()
     return {
         "auto_scan_new_videos": settings.auto_scan_new_videos,
@@ -308,13 +305,15 @@ async def set_detection_preferences(
     detect_animals: bool | None = None,
 ) -> dict:
     """Update detection preferences."""
+    updates = {}
     if detect_people is not None:
-        settings.detect_people = detect_people
+        updates["detect_people"] = detect_people
     if detect_vehicles is not None:
-        settings.detect_vehicles = detect_vehicles
+        updates["detect_vehicles"] = detect_vehicles
     if detect_animals is not None:
-        settings.detect_animals = detect_animals
-    get_settings.cache_clear()
+        updates["detect_animals"] = detect_animals
+    if updates:
+        update_runtime_settings(updates)
     settings = get_settings()
     return {
         "detect_people": settings.detect_people,
@@ -326,8 +325,7 @@ async def set_detection_preferences(
 @router.post("/settings/language", response_model=dict)
 async def set_language(language: str) -> dict:
     """Set the UI language."""
-    settings.language = language
-    get_settings.cache_clear()
+    update_runtime_setting("language", language)
     settings = get_settings()
     return {"language": settings.language}
 
@@ -338,11 +336,13 @@ async def set_scheduler(
     auto_scan_enabled: bool | None = None,
 ) -> dict:
     """Update auto-scan scheduler settings."""
+    updates = {}
     if auto_scan_schedule is not None:
-        settings.auto_scan_schedule = auto_scan_schedule
+        updates["auto_scan_schedule"] = auto_scan_schedule
     if auto_scan_enabled is not None:
-        settings.auto_scan_enabled = auto_scan_enabled
-    get_settings.cache_clear()
+        updates["auto_scan_enabled"] = auto_scan_enabled
+    if updates:
+        update_runtime_settings(updates)
     settings = get_settings()
     return {
         "auto_scan_schedule": settings.auto_scan_schedule,
