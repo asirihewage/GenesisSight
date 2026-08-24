@@ -120,6 +120,36 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ollama_skipped: ollamaSkipped }),
     }),
+
+  // settings
+  getSettings: () => request<{
+    default_watch_dir: string;
+    auto_scan_new_videos: boolean;
+    detect_people: boolean;
+    detect_vehicles: boolean;
+    detect_animals: boolean;
+    language: string;
+    auto_scan_schedule: string;
+    auto_scan_enabled: boolean;
+  }>("/api/videos/settings"),
+  setDetectionPreferences: (prefs: { detect_people?: boolean; detect_vehicles?: boolean; detect_animals?: boolean }) =>
+    request<{ detect_people: boolean; detect_vehicles: boolean; detect_animals: boolean }>("/api/videos/settings/detection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prefs),
+    }),
+  setLanguage: (language: string) =>
+    request<{ language: string }>("/api/videos/settings/language", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ language }),
+    }),
+  setScheduler: (schedule: { auto_scan_schedule?: string; auto_scan_enabled?: boolean }) =>
+    request<{ auto_scan_schedule: string; auto_scan_enabled: boolean }>("/api/videos/settings/scheduler", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(schedule),
+    }),
 };
 
 export function wsUrl(): string {

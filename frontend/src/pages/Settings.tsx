@@ -1,22 +1,127 @@
-import { Bot, Cpu, Database, FolderOpen, HardDrive, MemoryStick, ScanFace } from "lucide-react";
+import { Bot, Cpu, Database, FolderOpen, HardDrive, MemoryStick, ScanFace, Globe, Clock, Users, Car, PawPrint, RotateCcw, ChevronDown } from "lucide-react";
 import { useHealth } from "@/hooks/useApi";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { useTheme } from "@/lib/theme";
+import { Row } from "@/components/ui/settings-helpers";
 import { api } from "@/lib/api";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select } from "@/components/ui/select";
+
+const LANGUAGES = [
+  { code: "en", name: "English" },
+  { code: "es", name: "Español" },
+  { code: "fr", name: "Français" },
+  { code: "de", name: "Deutsch" },
+  { code: "zh", name: "中文" },
+  { code: "ja", name: "日本語" },
+  { code: "ko", name: "한국어" },
+  { code: "ru", name: "Русский" },
+  { code: "ar", name: "العربية" },
+  { code: "hi", name: "हिन्दी" },
+  { code: "ta", name: "தமிழ்" },
+  { code: "si", name: "සිංහල" },
+];
+
+const SCHEDULE_PRESETS = [
+  { value: "", label: "Disabled (manual only)" },
+  { value: "0 * * * *", label: "Hourly" },
+  { value: "0 2 * * *", label: "Daily at 2:00 AM" },
+  { value: "0 3 * * 0", label: "Weekly on Sunday at 3:00 AM" },
+  { value: "0 4 1 * *", label: "Monthly on 1st at 4:00 AM" },
+];
 
 export function Settings() {
   const { data: health, isLoading } = useHealth();
+  const { setTheme, theme } = useTheme();
   const [settings, setSettings] = useState({
     default_watch_dir: "",
     auto_scan_new_videos: true,
+    detect_people: true,
+    detect_vehicles: true,
+    detect_animals: false,
+    language: "en",
+    auto_scan_schedule: "",
+    auto_scan_enabled: false,
   });
+  const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getWatchDir().then((data) => setSettings(data));
+    api.getSettings().then((data: any) => setSettings(data));
   }, []);
+
+  const handleSaveDetection = async () => {
+    setSaving("detection");
+    try {
+      const result = await api.setDetectionPreferences({
+        detect_people: settings.detect_people,
+        detect_vehicles: settings.detect_vehicles,
+        detect_animals: settings.detect_animals,
+      });
+      setSettings((s) => ({ ...s, ...result }));
+    } catch (error) {
+      console.error("Failed to save detection preferences:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleSaveLanguage = async () => {
+    setSaving("language");
+    try {
+      const result = await api.setLanguage(settings.language);
+      setSettings((s) => ({ ...s, ...result }));
+    } catch (error) {
+      console.error("Failed to save language:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleSaveScheduler = async () => {
+    setSaving("scheduler");
+    try {
+      const result = await api.setScheduler({
+        auto_scan_schedule: settings.auto_scan_schedule,
+        auto_scan_enabled: settings.auto_scan_enabled,
+      });
+      setSettings((s) => ({ ...s, ...result }));
+    } catch (error) {
+      console.error("Failed to save scheduler:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleWatchDirChange = async (dir: string) => {
+    setSaving("watchdir");
+    try {
+      const result = await api.setWatchDir(dir);
+      setSettings((s) => ({ ...s, ...result }));
+    } catch (error) {
+      console.error("Failed to save watch directory:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleAutoScanToggle = async () => {
+    setSaving("autoscan");
+    try {
+      const result = await api.setAutoScanToggle(!settings.auto_scan_new_videos);
+      setSettings((s) => ({ ...s, ...result }));
+    } catch (error) {
+      console.error("Failed to toggle auto-scan:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
 
   if (isLoading || !health) {
     return (
@@ -29,176 +134,256 @@ export function Settings() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings & system status</h1>
-        <p className="text-sm text-muted-foreground">
-          Hardware, models and local AI services — everything runs on this machine.
-        </p>
-      </div>
-
-      {/* hardware */}
+      {/* directory watching */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Cpu className="h-4 w-4 text-primary" /> Hardware
+            <FolderOpen className="h-4 w-4 text-primary" /> { "Directory Watching" }
           </CardTitle>
+          <CardDescription>Monitor a directory for new video files and auto-analyze them.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <Row label="GPU" value={health.gpu_name ?? "Not detected"} ok={health.cuda_available} />
-          <Row label="CUDA" value={health.cuda_available ? "Available" : "Unavailable (falling back to CPU)"} ok={health.cuda_available} />
-          <Row label="Torch device" value={health.device} ok />
-          <Row label="PyTorch version" value={health.torch_version ?? "n/a"} ok />
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="watch-dir">Watch Directory</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  id="watch-dir"
+                  type="text"
+                  value={settings.default_watch_dir || ""}
+                  onChange={(e) => setSettings((s) => ({ ...s, default_watch_dir: e.target.value }))}
+                  className="flex-1"
+                  placeholder="Enter path to watch..."
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleWatchDirChange(settings.default_watch_dir ? "" : health.storage_dir)}
+                  disabled={saving === "watchdir"}
+                >
+                  {settings.default_watch_dir ? "Clear" : "Set to storage dir"}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="auto-scan">Auto-scan New Files</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Switch
+                  id="auto-scan"
+                  checked={settings.auto_scan_new_videos}
+                  onChange={(e) => handleAutoScanToggle()}
+                  disabled={saving === "autoscan"}
+                />
+                <span className="text-sm">
+                  {settings.auto_scan_new_videos ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => api.scanWatchDir()}
+              disabled={!settings.default_watch_dir || saving === "scan"}
+            >
+              {settings.default_watch_dir ? "Scan Now" : "Set a watch directory first"}
+            </Button>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            {settings.default_watch_dir && "Watch directory is active - use Scan Now to check for new files"}
+          </div>
         </CardContent>
       </Card>
 
-      {/* AI models */}
+      {/* detection preferences */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <MemoryStick className="h-4 w-4 text-primary" /> AI models
+            <ScanFace className="h-4 w-4 text-primary" /> { "Detection Preferences" }
           </CardTitle>
+          <CardDescription>Choose what types of objects to detect and track in videos.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ModelRow
-            icon={ScanFace}
-            name={health.yolo.name}
-            available={health.yolo.available}
-            detail={health.yolo.detail}
-          />
-          <ModelRow
-            icon={ScanFace}
-            name={health.reid.name}
-            available={health.reid.available}
-            detail={health.reid.detail}
-          />
-          <ModelRow
-            icon={Bot}
-            name={health.ollama.name}
-            available={health.ollama.available}
-            detail={health.ollama.detail}
-          />
-          {health.ollama_models.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {health.ollama_models.map((m) => (
-                <Badge key={m} variant="outline">{m}</Badge>
-              ))}
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+              <Users className="h-6 w-6 text-primary" />
+              <div className="flex-1">
+                <Label className="font-medium">People</Label>
+                <p className="text-xs text-muted-foreground">Detect and track persons (Re-ID, events)</p>
+              </div>
+              <Switch
+                checked={settings.detect_people}
+                onChange={(e) => setSettings((s) => ({ ...s, detect_people: e.target.checked }))}
+              />
+            </div>
+            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+              <Car className="h-6 w-6 text-primary" />
+              <div className="flex-1">
+                <Label className="font-medium">Vehicles</Label>
+                <p className="text-xs text-muted-foreground">Detect cars, trucks, buses, motorcycles</p>
+              </div>
+              <Switch
+                checked={settings.detect_vehicles}
+                onChange={(e) => setSettings((s) => ({ ...s, detect_vehicles: e.target.checked }))}
+              />
+            </div>
+            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+              <PawPrint className="h-6 w-6 text-primary" />
+              <div className="flex-1">
+                <Label className="font-medium">Animals</Label>
+                <p className="text-xs text-muted-foreground">Detect dogs, cats, birds, etc.</p>
+              </div>
+              <Switch
+                checked={settings.detect_animals}
+                onChange={(e) => setSettings((s) => ({ ...s, detect_animals: e.target.checked }))}
+              />
+            </div>
+          </div>
+
+          <Button onClick={handleSaveDetection} disabled={saving === "detection"}>
+            {saving === "detection" ? "Saving..." : "Save Detection Preferences"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* language */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Globe className="h-4 w-4 text-primary" /> { "Language" }
+          </CardTitle>
+          <CardDescription>Select the display language for the interface.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="language">Interface Language</Label>
+              <Select
+                id="language"
+                value={settings.language}
+                onChange={(e) => setSettings((s) => ({ ...s, language: e.target.value }))}
+                className="mt-1"
+              >
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <Button onClick={handleSaveLanguage} disabled={saving === "language"}>
+            {saving === "language" ? "Saving..." : "Save Language"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* auto-scan scheduler */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Clock className="h-4 w-4 text-primary" /> { "Auto-Scan Scheduler" }
+          </CardTitle>
+          <CardDescription>
+            Automatically scan the watch directory on a schedule. Uses cron expressions (minute hour day month weekday).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <Label htmlFor="scheduler-enabled">Enable Scheduler</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Switch
+                  id="scheduler-enabled"
+                  checked={settings.auto_scan_enabled}
+                  onChange={(e) => setSettings((s) => ({ ...s, auto_scan_enabled: e.target.checked }))}
+                />
+                <span className="text-sm">
+                  {settings.auto_scan_enabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="schedule">Schedule (Cron Expression)</Label>
+              <Select
+                id="schedule"
+                value={settings.auto_scan_schedule}
+                onChange={(e) => setSettings((s) => ({ ...s, auto_scan_schedule: e.target.value }))}
+                disabled={!settings.auto_scan_enabled}
+                className="mt-1"
+              >
+                {SCHEDULE_PRESETS.map((preset) => (
+                  <option key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Format: minute hour day month weekday (e.g., "0 2 * * *" = daily at 2 AM)
+              </p>
+            </div>
+          </div>
+
+          <Button onClick={handleSaveScheduler} disabled={saving === "scheduler"}>
+            {saving === "scheduler" ? "Saving..." : "Save Scheduler Settings"}
+          </Button>
+
+          {settings.auto_scan_enabled && settings.auto_scan_schedule && (
+            <div className="p-3 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-sm">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4" />
+                <span>Scheduler active - next scan will run per cron schedule</span>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* storage */}
+      {/* theme settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <HardDrive className="h-4 w-4 text-primary" /> Storage
+            <Bot className="h-4 w-4 text-primary" /> { "Appearance" }
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <Row
-            label="Storage used"
-            value={`${health.storage_used_mb.toFixed(1)} MB (${health.videos} video${health.videos === 1 ? "" : "s"})`}
-            ok
-          />
-          <Row label="Data directory" value={health.storage_dir} ok />
-        </CardContent>
-      </Card>
-
-      {/* notes */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Database className="h-4 w-4 text-primary" /> Notes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-xs text-muted-foreground">
-          <Separator className="my-2" />
-          <p className="flex items-center gap-1"><FolderOpen className="h-3.5 w-3.5" /> Storage path: {health.storage_dir}</p>
-        </CardContent>
-      </Card>
-
-      {/* directory watching */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FolderOpen className="h-4 w-4 text-primary" /> Directory Watching
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p className="text-muted-foreground">
-            Monitor a directory for new video files and auto-analyze them.
-          </p>
           <div className="grid gap-2 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Watch directory
-              </label>
-              <input
-                type="text"
-                id="watch-dir-input"
-                value={settings.default_watch_dir || ""}
-                onChange={(e) => setSettings((s) => ({ ...s, default_watch_dir: e.target.value }))}
-                className="w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                readOnly
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!settings.default_watch_dir) {
-                    api.setWatchDir(settings.storage_dir).then(() => api.getWatchDir().then(setSettings));
-                  } else {
-                    api.setWatchDir("").then(() => api.getWatchDir().then(setSettings));
-                  }
-                }}
-                className="mt-1 w-full"
-                title={settings.default_watch_dir ? "Clear watch directory" : "Set to storage dir"}
-              >
-                {settings.default_watch_dir ? "Clear" : "Set to storage dir"}
-              </Button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Auto-scan new files
-              </label>
-              <div className="flex items-center gap-2">
-                <span className={settings.auto_scan_new_videos ? "text-primary" : "text-muted-foreground"}>
-                  {settings.auto_scan_new_videos ? "Enabled" : "Disabled"}
-                </span>
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  className="cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => {
-                    api.setAutoScanToggle(!settings.auto_scan_new_videos).then(() => api.getWatchDir().then(setSettings));
-                  }}
+              <Label htmlFor="theme">Theme</Label>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                    theme === "light" ? "bg-primary text-primary-foreground" : "hover:text-primary"
+                  }`}
                 >
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
+                  Light
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                    theme === "dark" ? "bg-primary text-primary-foreground" : "hover:text-primary"
+                  }`}
+                >
+                  Dark
+                </button>
+                <button
+                  onClick={() => setTheme("system")}
+                  className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                    theme === "system" ? "bg-primary text-primary-foreground" : "hover:text-primary"
+                  }`}
+                >
+                  System
+                </button>
               </div>
             </div>
-          </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => api.scanWatchDir()}
-            disabled={!settings.default_watch_dir}
-            className="w-full mt-2">
-            {settings.default_watch_dir ? "Scan now" : "Set a watch directory first"}
-          </Button>
-          <div className="mt-2 text-xs text-muted-foreground" id="watch-dir-status">
-            {settings.default_watch_dir && "Watch directory is active - use Scan now to check for new files"}
           </div>
         </CardContent>
       </Card>
     </div>
   );
-}
-
-function setAutoScanToggle(enabled: boolean) {
-  api.setAutoScanToggle(enabled).then(() => api.getWatchDir().then(setSettings));
 }

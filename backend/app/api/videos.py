@@ -93,12 +93,23 @@ async def list_videos(
     db: Session = Depends(get_db),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    sort_by: str = Query(default="completed", regex="^(completed|processing|newest)$"),
 ) -> list[VideoOut]:
-    # Sort: completed/scanned videos first, then by creation date desc
-    query = select(Video).order_by(
-        Video.status != "completed",  # completed=true goes first (False=0, True=1, so !completed puts completed first)
-        Video.created_at.desc()
-    )
+    # Sort: completed/processing first, then by creation date desc
+    if sort_by == "processing":
+        query = select(Video).order_by(
+            Video.status != "processing",  # processing goes first (False=0, True=1)
+            Video.created_at.desc()
+        )
+    elif sort_by == "newest":
+        query = select(Video).order_by(
+            Video.created_at.desc()
+        )
+    else:  # completed
+        query = select(Video).order_by(
+            Video.status != "completed",  # completed=true goes first (False=0, True=1, so !completed puts completed first)
+            Video.created_at.desc()
+        )
     videos = db.scalars(query.offset(offset).limit(limit)).all()
     out = [VideoOut.model_validate(v) for v in videos]
     for v, o in zip(videos, out):
@@ -270,6 +281,72 @@ async def set_auto_scan_toggle(enabled: bool) -> dict:
     return {
         "auto_scan_new_videos": settings.auto_scan_new_videos,
         "message": f"Auto-scan {'enabled' if enabled else 'disabled'}",
+    }
+
+
+# -- general settings ---------------------------------------------------
+
+@router.get("/settings", response_model=dict)
+async def get_settings() -> dict:
+    """Get all configurable settings."""
+    return {
+        "default_watch_dir": settings.default_watch_dir,
+        "auto_scan_new_videos": settings.auto_scan_new_videos,
+        "detect_people": settings.detect_people,
+        "detect_vehicles": settings.detect_vehicles,
+        "detect_animals": settings.detect_animals,
+        "language": settings.language,
+        "auto_scan_schedule": settings.auto_scan_schedule,
+        "auto_scan_enabled": settings.auto_scan_enabled,
+    }
+
+
+@router.post("/settings/detection", response_model=dict)
+async def set_detection_preferences(
+    detect_people: bool | None = None,
+    detect_vehicles: bool | None = None,
+    detect_animals: bool | None = None,
+) -> dict:
+    """Update detection preferences."""
+    if detect_people is not None:
+        settings.detect_people = detect_people
+    if detect_vehicles is not None:
+        settings.detect_vehicles = detect_vehicles
+    if detect_animals is not None:
+        settings.detect_animals = detect_animals
+    get_settings.cache_clear()
+    settings = get_settings()
+    return {
+        "detect_people": settings.detect_people,
+        "detect_vehicles": settings.detect_vehicles,
+        "detect_animals": settings.detect_animals,
+    }
+
+
+@router.post("/settings/language", response_model=dict)
+async def set_language(language: str) -> dict:
+    """Set the UI language."""
+    settings.language = language
+    get_settings.cache_clear()
+    settings = get_settings()
+    return {"language": settings.language}
+
+
+@router.post("/settings/scheduler", response_model=dict)
+async def set_scheduler(
+    auto_scan_schedule: str | None = None,
+    auto_scan_enabled: bool | None = None,
+) -> dict:
+    """Update auto-scan scheduler settings."""
+    if auto_scan_schedule is not None:
+        settings.auto_scan_schedule = auto_scan_schedule
+    if auto_scan_enabled is not None:
+        settings.auto_scan_enabled = auto_scan_enabled
+    get_settings.cache_clear()
+    settings = get_settings()
+    return {
+        "auto_scan_schedule": settings.auto_scan_schedule,
+        "auto_scan_enabled": settings.auto_scan_enabled,
     }
 
 

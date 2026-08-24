@@ -89,6 +89,18 @@ class Settings(BaseSettings):
     default_watch_dir: str = ""           # empty = disabled
     auto_scan_new_videos: bool = True     # auto-analyze files placed in watch dir
 
+    # -- detection preferences ---------------------------------------------
+    detect_people: bool = True
+    detect_vehicles: bool = True
+    detect_animals: bool = False
+
+    # -- language ----------------------------------------------------------
+    language: str = "en"  # en, es, fr, de, zh, ja, ko, etc.
+
+    # -- auto-scan scheduler -----------------------------------------------
+    auto_scan_schedule: str = ""  # cron expression, e.g., "0 2 * * *" for daily at 2 AM
+    auto_scan_enabled: bool = False  # master switch for scheduled scans
+
     @property
     def cuda_available(self) -> bool:
         if self.device == "cpu":
