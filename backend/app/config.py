@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     ollama_timeout_s: int = 180
     ollama_connect_timeout_s: int = 3
 
+    # -- LPR (License Plate Recognition) -----------------------------------
+    lpr_enabled: bool = True
+    lpr_model: str = "yolo11n-license-plate.pt"  # YOLO model for plate detection
+    lpr_conf: float = 0.25
+    lpr_ocr_lang: list[str] = ["en"]  # OCR languages for EasyOCR
+    lpr_min_confidence: float = 0.5  # Minimum OCR confidence to accept plate
+
     # -- websocket / queue -------------------------------------------------
     ws_broadcast_enabled: bool = True
 

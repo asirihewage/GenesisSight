@@ -34,6 +34,9 @@ Pillow>=11.2.0
 ultralytics>=8.4.0
 supervision>=0.25.0
 
+# License Plate Recognition (LPR)
+easyocr>=1.7.2
+
 # ---------------------------------------------------------------------------
 # Optional: Person Re-Identification (OSNet).
 # torchreid needs a C compiler on Windows (Cython) — install it in its own

@@ -28,6 +28,7 @@ from app.database import SessionLocal
 from app.models import Event, Person, Vehicle, Video
 from app.services.detector import get_detector
 from app.services.events import EventGenerator
+from app.services.lpr import get_lpr_detector
 from app.services.motion import MotionDetector
 from app.services.ollama import ollama_client
 from app.services.reid import ReIDEngine, get_reid_engine
@@ -302,6 +303,7 @@ class AnalysisPipeline:
 
             # vehicle tracking
             track_vehicle: dict[int, int] = {}
+            lpr = get_lpr_detector()
             for t in tracks:
                 if not t.vehicle():
                     continue
@@ -320,6 +322,14 @@ class AnalysisPipeline:
                         vehicle.thumbnail_path = save_image(
                             self.video_id, f"vehicle_{vehicle.id}.jpg", crop
                         )
+                        # Run LPR on vehicle crop
+                        if lpr is not None:
+                            plates = lpr.detect_plates(crop)
+                            if plates:
+                                best_plate = max(plates, key=lambda p: p.confidence)
+                                vehicle.license_plate = best_plate.plate_text
+                                logger.info("LPR detected plate '%s' (conf=%.2f) for vehicle %d",
+                                           best_plate.plate_text, best_plate.confidence, vehicle.id)
                     track_vehicle[tid] = vehicle.id
                     self._vehicle_rows[vehicle.id] = vehicle.id
                     generator.register_vehicle_track(tid, vehicle.id, ts, t.class_name)
