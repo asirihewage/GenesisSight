@@ -99,11 +99,6 @@ export const api = {
   // health
   health: () => request<Health>("/api/health"),
 
-  // directory watching
-  getWatchDir: () => request<{ default_watch_dir: string; auto_scan_new_videos: boolean }>("/api/videos/watch-dir"),
-  setWatchDir: (dir: string) => request<{ default_watch_dir: string; auto_scan_new_videos: boolean; message: string }>("/api/videos/watch-dir", { method: "POST" }),
-  scanWatchDir: () => request<{ found: number; added: number; message: string }>("/api/videos/watch-dir/scan", { method: "POST" }),
-
   // first-run setup wizard
   setupStatus: () => request<SetupStatus>("/api/setup/status"),
   setupDownloadYolo: () => request<{ ok: boolean; started: boolean }>("/api/setup/yolo/download", { method: "POST" }),

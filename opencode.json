@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "title": "CCTV Analyzer",
+  "description": "Local AI CCTV video analyzer",
+  "url": "http://localhost:5173",
+  "webRoot": "${workspaceFolder}/frontend",
+  "env": {
+    "VITE_API_URL": "http://localhost:8000"
+  },
+  "extensions": [".ts", ".tsx", ".js", ".jsx"],
+  "ports": {
+    "devServer": 5173,
+    "backend": 8000
+  },
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--userDataDir",
+        "${workspaceFolder}/.chrome-profile"
+      ]
+    }
+  }
+}
