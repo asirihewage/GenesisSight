@@ -80,5 +80,10 @@ def crop_person(frame: np.ndarray, xyxy: np.ndarray, pad_ratio: float = 0.12) ->
     return frame[y1:y2, x1:x2]
 
 
+def crop_vehicle(frame: np.ndarray, xyxy: np.ndarray, pad_ratio: float = 0.15) -> np.ndarray:
+    """Crop vehicle with slightly larger padding than person crop."""
+    return crop_person(frame, xyxy, pad_ratio=pad_ratio)
+
+
 def unique_name(prefix: str, ext: str = "jpg") -> str:
     return f"{prefix}_{uuid.uuid4().hex[:10]}.{ext}"

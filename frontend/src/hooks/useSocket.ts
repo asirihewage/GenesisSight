@@ -6,12 +6,13 @@ import type { WsMessage } from "@/types";
  * Reconnecting WebSocket hook. Returns the latest message plus connection state.
  * Reconnects automatically with backoff; pings the server to keep it alive.
  */
-export function useSocket(): { message: WsMessage | null; connected: boolean } {
+export function useSocket(): { message: WsMessage | null; connected: boolean; onEvent: (cb: (msg: WsMessage) => void) => () => void } {
   const [message, setMessage] = useState<WsMessage | null>(null);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<number | null>(null);
+  const callbacksRef = useRef<Set<(msg: WsMessage) => void>>(new Set());
 
   const connect = useCallback(() => {
     const ws = new WebSocket(wsUrl());
@@ -25,6 +26,7 @@ export function useSocket(): { message: WsMessage | null; connected: boolean } {
       try {
         const data = JSON.parse(ev.data) as WsMessage;
         setMessage(data);
+        callbacksRef.current.forEach((cb) => cb(data));
       } catch {
         /* ignore malformed frames */
       }
@@ -46,5 +48,10 @@ export function useSocket(): { message: WsMessage | null; connected: boolean } {
     };
   }, [connect]);
 
-  return { message, connected };
+  const onEvent = useCallback((cb: (msg: WsMessage) => void) => {
+    callbacksRef.current.add(cb);
+    return () => callbacksRef.current.delete(cb);
+  }, []);
+
+  return { message, connected, onEvent };
 }

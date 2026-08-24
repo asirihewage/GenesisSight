@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import health, persons, search, setup, videos, ws
+from app.api import health, persons, search, setup, vehicles, videos, ws
 from app.config import settings
 from app.core.worker import worker
 from app.database import init_db
@@ -64,6 +64,7 @@ app.add_middleware(
 
 app.include_router(videos.router)
 app.include_router(persons.router)
+app.include_router(vehicles.router)
 app.include_router(search.router)
 app.include_router(health.router)
 app.include_router(ws.router)

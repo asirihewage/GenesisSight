@@ -59,4 +59,10 @@ export const EVENT_TYPE_SOLID: Record<string, string> = {
   person_carrying: "bg-amber-500",
   person_loitering: "bg-violet-500",
   person_running: "bg-red-500",
+  vehicle_entered: "bg-emerald-500",
+  vehicle_exited: "bg-rose-500",
+  vehicle_appeared: "bg-sky-500",
+  vehicle_disappeared: "bg-orange-500",
 };
+
+export { formatTimestamp as formatTime };

@@ -37,6 +37,9 @@ class TrackedDetection:
     def person(self) -> bool:
         return int(self.class_id) == 0
 
+    def vehicle(self) -> bool:
+        return int(self.class_id) in (2, 3, 5, 7)  # car, motorcycle, bus, truck
+
 
 class ByteTrackTracker:
     def __init__(self) -> None:

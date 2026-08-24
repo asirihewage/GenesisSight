@@ -6,6 +6,8 @@ import { Search } from "@/pages/Search";
 import { Settings } from "@/pages/Settings";
 import { People } from "@/pages/People";
 import { About } from "@/pages/About";
+import { SystemStatus } from "@/pages/SystemStatus";
+import { Vehicles } from "@/pages/Vehicles";
 
 export default function App() {
   return (
@@ -14,8 +16,10 @@ export default function App() {
       <Route path="/upload" element={<Upload />} />
       <Route path="/videos/:id" element={<VideoAnalysis />} />
       <Route path="/people" element={<People />} />
+      <Route path="/vehicles" element={<Vehicles />} />
       <Route path="/search" element={<Search />} />
       <Route path="/settings" element={<Settings />} />
+      <Route path="/system-status" element={<SystemStatus />} />
       <Route path="/about" element={<About />} />
       <Route path="*" element={<Dashboard />} />
     </Routes>

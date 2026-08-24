@@ -47,6 +47,20 @@ export interface SimilarPerson {
   score: number;
 }
 
+export interface Vehicle {
+  id: number;
+  video_id: number | null;
+  first_seen: number;
+  last_seen: number;
+  vehicle_type: string | null;
+  color: string | null;
+  make_model: string | null;
+  license_plate: string | null;
+  thumbnail_url: string | null;
+  event_count: number;
+  last_event_type: string | null;
+}
+
 export interface CctvEvent {
   id: number;
   video_id: number;

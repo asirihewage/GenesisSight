@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Activity, Info, LayoutDashboard, Search, Settings, UploadCloud, Users, Video } from "lucide-react";
+import { Activity, Car, Info, LayoutDashboard, Search, Settings, UploadCloud, Users, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -7,6 +7,7 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/upload", label: "Upload", icon: UploadCloud },
   { to: "/people", label: "People", icon: Users },
+  { to: "/vehicles", label: "Vehicles", icon: Car },
   { to: "/search", label: "Search", icon: Search },
   { to: "/system-status", label: "System Status", icon: Activity },
   { to: "/settings", label: "Settings", icon: Settings },

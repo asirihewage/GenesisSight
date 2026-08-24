@@ -43,6 +43,9 @@ class Video(Base):
     persons: Mapped[list["Person"]] = relationship(
         back_populates="video", cascade="all, delete-orphan", passive_deletes=True
     )
+    vehicles: Mapped[list["Vehicle"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Person(Base):
@@ -67,17 +70,43 @@ class Person(Base):
     events: Mapped[list["Event"]] = relationship(back_populates="person")
 
 
+class Vehicle(Base):
+    __tablename__ = "vehicles"
+    __table_args__ = (Index("ix_vehicles_video", "video_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    video_id: Mapped[int | None] = mapped_column(
+        ForeignKey("videos.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    track_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    vehicle_type: Mapped[str] = mapped_column(String(32), nullable=True)  # car, truck, bus, motorcycle
+    color: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    make_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    license_plate: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    first_seen: Mapped[float] = mapped_column(Float, default=0.0)
+    last_seen: Mapped[float] = mapped_column(Float, default=0.0)
+    thumbnail_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    video: Mapped[Video | None] = relationship(back_populates="vehicles")
+    events: Mapped[list["Event"]] = relationship(back_populates="vehicle")
+
+
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
         Index("ix_events_video_ts", "video_id", "timestamp"),
         Index("ix_events_person", "person_id"),
+        Index("ix_events_vehicle", "vehicle_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     video_id: Mapped[int] = mapped_column(ForeignKey("videos.id", ondelete="CASCADE"), index=True)
     person_id: Mapped[int | None] = mapped_column(
         ForeignKey("persons.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    vehicle_id: Mapped[int | None] = mapped_column(
+        ForeignKey("vehicles.id", ondelete="SET NULL"), nullable=True, index=True
     )
     timestamp: Mapped[float] = mapped_column(Float, default=0.0)  # seconds into the video
     event_type: Mapped[str] = mapped_column(String(64), index=True)
@@ -96,3 +125,4 @@ class Event(Base):
 
     video: Mapped[Video] = relationship(back_populates="events")
     person: Mapped[Person | None] = relationship(back_populates="events")
+    vehicle: Mapped[Vehicle | None] = relationship(back_populates="events")

@@ -25,18 +25,19 @@ import numpy as np
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Event, Person, Video
+from app.models import Event, Person, Vehicle, Video
 from app.services.detector import get_detector
 from app.services.events import EventGenerator
 from app.services.motion import MotionDetector
 from app.services.ollama import ollama_client
 from app.services.reid import ReIDEngine, get_reid_engine
 from app.services.tracker import ByteTrackTracker, TrackedDetection
-from app.services.visualizer import crop_person, draw_tracks, save_image
+from app.services.visualizer import crop_person, crop_vehicle, draw_tracks, save_image
 
 logger = logging.getLogger(__name__)
 
-VLM_PRIORITY_TYPES = ("person_entered", "person_exited", "person_carrying", "person_running")
+VLM_PRIORITY_TYPES = ("person_entered", "person_exited", "person_carrying", "person_running",
+                      "vehicle_entered", "vehicle_exited")
 
 STAGES = {
     "open": "Opening video",
@@ -107,6 +108,7 @@ class AnalysisPipeline:
         self._labels: dict[int, int] = {}
         self._vlm_event_ids: list[int] = []
         self._person_rows: dict[int, int] = {}  # matcher pid -> Person.id
+        self._vehicle_rows: dict[int, int] = {}  # matcher vid -> Vehicle.id
         self._db = None
 
     # ------------------------------------------------------------------
@@ -298,6 +300,35 @@ class AnalysisPipeline:
                     generator.register_track(tid, self._person_rows[pid], ts)
                 self._labels[tid] = self._person_rows[track_person[tid]]
 
+            # vehicle tracking
+            track_vehicle: dict[int, int] = {}
+            for t in tracks:
+                if not t.vehicle():
+                    continue
+                tid = t.track_id
+                if tid not in track_vehicle:
+                    crop = crop_vehicle(frame, t.xyxy)
+                    # Create vehicle record on first sighting
+                    vehicle = Vehicle(
+                        video_id=self.video_id, track_id=tid,
+                        vehicle_type=t.class_name,
+                        first_seen=ts, last_seen=ts,
+                    )
+                    db.add(vehicle)
+                    db.flush()
+                    if crop.size > 0:
+                        vehicle.thumbnail_path = save_image(
+                            self.video_id, f"vehicle_{vehicle.id}.jpg", crop
+                        )
+                    track_vehicle[tid] = vehicle.id
+                    self._vehicle_rows[vehicle.id] = vehicle.id
+                    generator.register_vehicle_track(tid, vehicle.id, ts, t.class_name)
+                else:
+                    vehicle = db.get(Vehicle, track_vehicle[tid])
+                    if vehicle is not None:
+                        vehicle.last_seen = ts
+                    generator.register_vehicle_track(tid, track_vehicle[tid], ts)
+
             generator.process(tracks, frame_idx, ts)
             db.commit()
             report()
@@ -330,6 +361,7 @@ class AnalysisPipeline:
         row = Event(
             video_id=self.video_id,
             person_id=event["person_id"],
+            vehicle_id=event.get("vehicle_id"),
             timestamp=event["timestamp"],
             event_type=event["event_type"],
             description=event["description"],

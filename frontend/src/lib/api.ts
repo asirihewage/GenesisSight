@@ -1,4 +1,4 @@
-import type { Health, Person, SimilarPerson, CctvEvent, SearchResponse, SetupStatus, StatusResponse, UploadResponse, Video, VideoStats } from "@/types";
+import type { Health, Person, SimilarPerson, CctvEvent, SearchResponse, SetupStatus, StatusResponse, UploadResponse, Video, VideoStats, Vehicle } from "@/types";
 
 const BASE = ""; // same origin (vite proxy / fastapi static)
 
@@ -80,6 +80,16 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
   personSimilar: (id: number) => request<SimilarPerson[]>(`/api/persons/${id}/similar`),
+
+  // vehicles
+  listVehicles: (page = 1, limit = 20) => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    return request<{ items: Vehicle[]; total_pages: number }>(`/api/vehicles?${params.toString()}`);
+  },
+  getVehicle: (id: number) => request<Vehicle>(`/api/vehicles/${id}`),
+  getVehicleEvents: (vehicleId: number) => request<CctvEvent[]>(`/api/vehicles/${vehicleId}/events`),
 
   // event annotations (tags / notes are fed back into semantic search)
   patchEvent: (videoId: number, eventId: number, patch: { tags?: string[]; tag?: string; note?: string }) =>

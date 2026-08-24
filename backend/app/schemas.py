@@ -72,6 +72,25 @@ class SimilarPersonOut(BaseModel):
 
 
 # --------------------------------------------------------------------------
+# Vehicles
+# --------------------------------------------------------------------------
+class VehicleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    video_id: int | None
+    first_seen: float
+    last_seen: float
+    vehicle_type: str | None = None
+    color: str | None = None
+    make_model: str | None = None
+    license_plate: str | None = None
+    thumbnail_url: str | None = None
+    event_count: int = 0
+    last_event_type: str | None = None
+
+
+# --------------------------------------------------------------------------
 # Events
 # --------------------------------------------------------------------------
 class EventOut(BaseModel):
