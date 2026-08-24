@@ -19,10 +19,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   // videos
-  listVideos: (limit = 20, offset = 0) => {
+  listVideos: (limit = 20, offset = 0, sortBy: "completed" | "processing" | "newest" = "newest") => {
     const params = new URLSearchParams();
     params.set("limit", String(limit));
     params.set("offset", String(offset));
+    params.set("sort_by", sortBy);
     return request<Video[]>(`/api/videos?${params.toString()}`);
   },
   getVideo: (id: number) => request<Video>(`/api/videos/${id}`),

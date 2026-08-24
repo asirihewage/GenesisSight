@@ -12,8 +12,8 @@ export const queryKeys = {
   health: ["health"] as const,
 };
 
-export function useVideos(limit = 20, offset = 0) {
-  return useQuery({ queryKey: [...queryKeys.videos, limit, offset], queryFn: () => api.listVideos(limit, offset) });
+export function useVideos(limit = 20, offset = 0, sortBy: "completed" | "processing" | "newest" = "newest") {
+  return useQuery({ queryKey: [...queryKeys.videos, limit, offset, sortBy], queryFn: () => api.listVideos(limit, offset, sortBy) });
 }
 
 export function useVideo(id: number) {
