@@ -27,6 +27,7 @@ class VideoOut(BaseModel):
     error: str | None = None
     created_at: datetime
     video_url: str | None = None
+    thumbnail_url: str | None = None
 
 
 class UploadResponse(BaseModel):

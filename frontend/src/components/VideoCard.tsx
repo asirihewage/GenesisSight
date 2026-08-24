@@ -26,11 +26,20 @@ interface VideoCardProps {
 
 export function VideoCard({ video, onDelete }: VideoCardProps) {
   const processing = video.status === "processing" || video.status === "queued";
+  const hasThumbnail = video.thumbnail_url && video.status === "completed";
   return (
     <Card className="group relative overflow-hidden transition-colors hover:border-primary/40">
       <Link to={`/videos/${video.id}`} className="block">
         <div className="flex aspect-video w-full items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950">
-          <Film className="h-10 w-10 text-muted-foreground/40" />
+          {hasThumbnail ? (
+            <img
+              src={video.thumbnail_url!}
+              alt={video.filename}
+              className="object-cover w-full h-full"
+            />
+          ) : (
+            <Film className="h-10 w-10 text-muted-foreground/40" />
+          )}
         </div>
         <div className="space-y-2 p-4">
           <div className="flex items-start justify-between gap-2">

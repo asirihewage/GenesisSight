@@ -7,11 +7,12 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
-from app.api.utils import serialize_event, serialize_events, status_response, video_url
+from app.api.utils import media_url, serialize_event, serialize_events, status_response, video_url
 from app.config import settings, update_runtime_setting, update_runtime_settings
 from app.core.worker import worker
 from app.database import get_db
@@ -21,6 +22,22 @@ from app.schemas import EventOut, EventPatch, StatusResponse, UploadResponse, Vi
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
+
+
+class DetectionPrefs(BaseModel):
+    detect_people: bool | None = None
+    detect_vehicles: bool | None = None
+    detect_animals: bool | None = None
+
+
+class LanguageReq(BaseModel):
+    language: str
+
+
+class SchedulerReq(BaseModel):
+    auto_scan_schedule: str | None = None
+    auto_scan_enabled: bool | None = None
+
 
 MAX_UPLOAD_BYTES = settings.max_upload_mb * 1024 * 1024
 
@@ -114,6 +131,20 @@ async def list_videos(
     out = [VideoOut.model_validate(v) for v in videos]
     for v, o in zip(videos, out):
         o.video_url = video_url(v)
+        # Add thumbnail: first event's thumbnail for completed videos
+        if v.status == "completed":
+            first_event = db.execute(
+                select(Event).where(Event.video_id == v.id).order_by(Event.timestamp.asc()).limit(1)
+            ).scalar_one_or_none()
+            if first_event and first_event.thumbnail_path:
+                o.thumbnail_url = media_url(first_event.thumbnail_path)
+            else:
+                # Fallback: first person's thumbnail
+                first_person = db.execute(
+                    select(Person).where(Person.video_id == v.id).order_by(Person.first_seen.asc()).limit(1)
+                ).scalar_one_or_none()
+                if first_person and first_person.thumbnail_path:
+                    o.thumbnail_url = media_url(first_person.thumbnail_path)
     return out
 
 
@@ -124,6 +155,19 @@ async def get_video(video_id: int, db: Session = Depends(get_db)) -> VideoOut:
         raise HTTPException(status_code=404, detail="Video not found")
     out = VideoOut.model_validate(video)
     out.video_url = video_url(video)
+    # Add thumbnail for completed videos
+    if video.status == "completed":
+        first_event = db.execute(
+            select(Event).where(Event.video_id == video_id).order_by(Event.timestamp.asc()).limit(1)
+        ).scalar_one_or_none()
+        if first_event and first_event.thumbnail_path:
+            out.thumbnail_url = media_url(first_event.thumbnail_path)
+        else:
+            first_person = db.execute(
+                select(Person).where(Person.video_id == video_id).order_by(Person.first_seen.asc()).limit(1)
+            ).scalar_one_or_none()
+            if first_person and first_person.thumbnail_path:
+                out.thumbnail_url = media_url(first_person.thumbnail_path)
     return out
 
 
@@ -300,18 +344,16 @@ async def get_settings() -> dict:
 
 @router.post("/settings/detection", response_model=dict)
 async def set_detection_preferences(
-    detect_people: bool | None = None,
-    detect_vehicles: bool | None = None,
-    detect_animals: bool | None = None,
+    prefs: DetectionPrefs = Body(...),
 ) -> dict:
     """Update detection preferences."""
     updates = {}
-    if detect_people is not None:
-        updates["detect_people"] = detect_people
-    if detect_vehicles is not None:
-        updates["detect_vehicles"] = detect_vehicles
-    if detect_animals is not None:
-        updates["detect_animals"] = detect_animals
+    if prefs.detect_people is not None:
+        updates["detect_people"] = prefs.detect_people
+    if prefs.detect_vehicles is not None:
+        updates["detect_vehicles"] = prefs.detect_vehicles
+    if prefs.detect_animals is not None:
+        updates["detect_animals"] = prefs.detect_animals
     if updates:
         update_runtime_settings(updates)
     settings = get_settings()
@@ -323,24 +365,21 @@ async def set_detection_preferences(
 
 
 @router.post("/settings/language", response_model=dict)
-async def set_language(language: str) -> dict:
+async def set_language(req: LanguageReq = Body(...)) -> dict:
     """Set the UI language."""
-    update_runtime_setting("language", language)
+    update_runtime_setting("language", req.language)
     settings = get_settings()
     return {"language": settings.language}
 
 
 @router.post("/settings/scheduler", response_model=dict)
-async def set_scheduler(
-    auto_scan_schedule: str | None = None,
-    auto_scan_enabled: bool | None = None,
-) -> dict:
+async def set_scheduler(req: SchedulerReq = Body(...)) -> dict:
     """Update auto-scan scheduler settings."""
     updates = {}
-    if auto_scan_schedule is not None:
-        updates["auto_scan_schedule"] = auto_scan_schedule
-    if auto_scan_enabled is not None:
-        updates["auto_scan_enabled"] = auto_scan_enabled
+    if req.auto_scan_schedule is not None:
+        updates["auto_scan_schedule"] = req.auto_scan_schedule
+    if req.auto_scan_enabled is not None:
+        updates["auto_scan_enabled"] = req.auto_scan_enabled
     if updates:
         update_runtime_settings(updates)
     settings = get_settings()

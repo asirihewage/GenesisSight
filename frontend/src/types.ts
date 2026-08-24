@@ -12,6 +12,7 @@ export interface Video {
   error: string | null;
   created_at: string;
   video_url: string | null;
+  thumbnail_url: string | null;
 }
 
 export interface UploadResponse {
