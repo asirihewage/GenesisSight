@@ -117,9 +117,25 @@ class Settings(BaseSettings):
     # -- runtime settings (loaded from JSON, not env) ---------------------
     default_watch_dir: str = ""           # empty = disabled
     auto_scan_new_videos: bool = True     # auto-analyze files placed in watch dir
+
+    # -- detection preferences: People ------------------------------------
     detect_people: bool = True
+    detect_faces: bool = True
+    detect_person_attributes: bool = False  # gender, age, clothing colors
+    detect_behavior: bool = True            # loitering, running, carrying, etc.
+
+    # -- detection preferences: Vehicles ----------------------------------
     detect_vehicles: bool = True
+    detect_license_plates: bool = True      # LPR
+    detect_vehicle_color: bool = True
+    detect_vehicle_make_model: bool = False  # requires additional model
+
+    # -- detection preferences: Animals -----------------------------------
     detect_animals: bool = False
+    detect_dogs: bool = True
+    detect_cats: bool = True
+    detect_birds: bool = True
+
     language: str = "en"
     auto_scan_schedule: str = ""
     auto_scan_enabled: bool = False

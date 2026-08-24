@@ -125,15 +125,53 @@ export const api = {
   getSettings: () => request<{
     default_watch_dir: string;
     auto_scan_new_videos: boolean;
+    // People
     detect_people: boolean;
+    detect_faces: boolean;
+    detect_person_attributes: boolean;
+    detect_behavior: boolean;
+    // Vehicles
     detect_vehicles: boolean;
+    detect_license_plates: boolean;
+    detect_vehicle_color: boolean;
+    detect_vehicle_make_model: boolean;
+    // Animals
     detect_animals: boolean;
+    detect_dogs: boolean;
+    detect_cats: boolean;
+    detect_birds: boolean;
     language: string;
     auto_scan_schedule: string;
     auto_scan_enabled: boolean;
   }>("/api/videos/settings"),
-  setDetectionPreferences: (prefs: { detect_people?: boolean; detect_vehicles?: boolean; detect_animals?: boolean }) =>
-    request<{ detect_people: boolean; detect_vehicles: boolean; detect_animals: boolean }>("/api/videos/settings/detection", {
+  setDetectionPreferences: (prefs: {
+    detect_people?: boolean;
+    detect_faces?: boolean;
+    detect_person_attributes?: boolean;
+    detect_behavior?: boolean;
+    detect_vehicles?: boolean;
+    detect_license_plates?: boolean;
+    detect_vehicle_color?: boolean;
+    detect_vehicle_make_model?: boolean;
+    detect_animals?: boolean;
+    detect_dogs?: boolean;
+    detect_cats?: boolean;
+    detect_birds?: boolean;
+  }) =>
+    request<{
+      detect_people: boolean;
+      detect_faces: boolean;
+      detect_person_attributes: boolean;
+      detect_behavior: boolean;
+      detect_vehicles: boolean;
+      detect_license_plates: boolean;
+      detect_vehicle_color: boolean;
+      detect_vehicle_make_model: boolean;
+      detect_animals: boolean;
+      detect_dogs: boolean;
+      detect_cats: boolean;
+      detect_birds: boolean;
+    }>("/api/videos/settings/detection", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(prefs),

@@ -25,9 +25,21 @@ router = APIRouter(prefix="/api/videos", tags=["videos"])
 
 
 class DetectionPrefs(BaseModel):
+    # People
     detect_people: bool | None = None
+    detect_faces: bool | None = None
+    detect_person_attributes: bool | None = None
+    detect_behavior: bool | None = None
+    # Vehicles
     detect_vehicles: bool | None = None
+    detect_license_plates: bool | None = None
+    detect_vehicle_color: bool | None = None
+    detect_vehicle_make_model: bool | None = None
+    # Animals
     detect_animals: bool | None = None
+    detect_dogs: bool | None = None
+    detect_cats: bool | None = None
+    detect_birds: bool | None = None
 
 
 class LanguageReq(BaseModel):
@@ -333,9 +345,21 @@ async def get_settings() -> dict:
     return {
         "default_watch_dir": settings.default_watch_dir,
         "auto_scan_new_videos": settings.auto_scan_new_videos,
+        # People
         "detect_people": settings.detect_people,
+        "detect_faces": settings.detect_faces,
+        "detect_person_attributes": settings.detect_person_attributes,
+        "detect_behavior": settings.detect_behavior,
+        # Vehicles
         "detect_vehicles": settings.detect_vehicles,
+        "detect_license_plates": settings.detect_license_plates,
+        "detect_vehicle_color": settings.detect_vehicle_color,
+        "detect_vehicle_make_model": settings.detect_vehicle_make_model,
+        # Animals
         "detect_animals": settings.detect_animals,
+        "detect_dogs": settings.detect_dogs,
+        "detect_cats": settings.detect_cats,
+        "detect_birds": settings.detect_birds,
         "language": settings.language,
         "auto_scan_schedule": settings.auto_scan_schedule,
         "auto_scan_enabled": settings.auto_scan_enabled,
@@ -348,19 +372,49 @@ async def set_detection_preferences(
 ) -> dict:
     """Update detection preferences."""
     updates = {}
+    # People
     if prefs.detect_people is not None:
         updates["detect_people"] = prefs.detect_people
+    if prefs.detect_faces is not None:
+        updates["detect_faces"] = prefs.detect_faces
+    if prefs.detect_person_attributes is not None:
+        updates["detect_person_attributes"] = prefs.detect_person_attributes
+    if prefs.detect_behavior is not None:
+        updates["detect_behavior"] = prefs.detect_behavior
+    # Vehicles
     if prefs.detect_vehicles is not None:
         updates["detect_vehicles"] = prefs.detect_vehicles
+    if prefs.detect_license_plates is not None:
+        updates["detect_license_plates"] = prefs.detect_license_plates
+    if prefs.detect_vehicle_color is not None:
+        updates["detect_vehicle_color"] = prefs.detect_vehicle_color
+    if prefs.detect_vehicle_make_model is not None:
+        updates["detect_vehicle_make_model"] = prefs.detect_vehicle_make_model
+    # Animals
     if prefs.detect_animals is not None:
         updates["detect_animals"] = prefs.detect_animals
+    if prefs.detect_dogs is not None:
+        updates["detect_dogs"] = prefs.detect_dogs
+    if prefs.detect_cats is not None:
+        updates["detect_cats"] = prefs.detect_cats
+    if prefs.detect_birds is not None:
+        updates["detect_birds"] = prefs.detect_birds
     if updates:
         update_runtime_settings(updates)
     settings = get_settings()
     return {
         "detect_people": settings.detect_people,
+        "detect_faces": settings.detect_faces,
+        "detect_person_attributes": settings.detect_person_attributes,
+        "detect_behavior": settings.detect_behavior,
         "detect_vehicles": settings.detect_vehicles,
+        "detect_license_plates": settings.detect_license_plates,
+        "detect_vehicle_color": settings.detect_vehicle_color,
+        "detect_vehicle_make_model": settings.detect_vehicle_make_model,
         "detect_animals": settings.detect_animals,
+        "detect_dogs": settings.detect_dogs,
+        "detect_cats": settings.detect_cats,
+        "detect_birds": settings.detect_birds,
     }
 
 

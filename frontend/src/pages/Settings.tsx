@@ -1,4 +1,4 @@
-import { Bot, Cpu, Database, FolderOpen, HardDrive, MemoryStick, ScanFace, Globe, Clock, Users, Car, PawPrint, RotateCcw, ChevronDown } from "lucide-react";
+import { Bot, Cpu, Database, FolderOpen, HardDrive, MemoryStick, ScanFace, Globe, Clock, Users, Car, PawPrint, RotateCcw, ChevronDown, User, Shield, Eye, Brain, Palette, Dog, Cat, Bird, Truck, Bus, Bike } from "lucide-react";
 import { useHealth } from "@/hooks/useApi";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -43,9 +43,21 @@ export function Settings() {
   const [settings, setSettings] = useState({
     default_watch_dir: "",
     auto_scan_new_videos: true,
+    // People
     detect_people: true,
+    detect_faces: true,
+    detect_person_attributes: false,
+    detect_behavior: true,
+    // Vehicles
     detect_vehicles: true,
+    detect_license_plates: true,
+    detect_vehicle_color: true,
+    detect_vehicle_make_model: false,
+    // Animals
     detect_animals: false,
+    detect_dogs: true,
+    detect_cats: true,
+    detect_birds: true,
     language: "en",
     auto_scan_schedule: "",
     auto_scan_enabled: false,
@@ -61,8 +73,17 @@ export function Settings() {
     try {
       const result = await api.setDetectionPreferences({
         detect_people: settings.detect_people,
+        detect_faces: settings.detect_faces,
+        detect_person_attributes: settings.detect_person_attributes,
+        detect_behavior: settings.detect_behavior,
         detect_vehicles: settings.detect_vehicles,
+        detect_license_plates: settings.detect_license_plates,
+        detect_vehicle_color: settings.detect_vehicle_color,
+        detect_vehicle_make_model: settings.detect_vehicle_make_model,
         detect_animals: settings.detect_animals,
+        detect_dogs: settings.detect_dogs,
+        detect_cats: settings.detect_cats,
+        detect_birds: settings.detect_birds,
       });
       setSettings((s) => ({ ...s, ...result }));
     } catch (error) {
@@ -204,46 +225,170 @@ export function Settings() {
           <CardTitle className="flex items-center gap-2 text-base">
             <ScanFace className="h-4 w-4 text-primary" /> { "Detection Preferences" }
           </CardTitle>
-          <CardDescription>Choose what types of objects to detect and track in videos.</CardDescription>
+          <CardDescription>Configure what to detect and analyze. Master toggles control sub-features.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+        <CardContent className="space-y-6">
+          {/* People Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
               <Users className="h-6 w-6 text-primary" />
               <div className="flex-1">
-                <Label className="font-medium">People</Label>
-                <p className="text-xs text-muted-foreground">Detect and track persons (Re-ID, events)</p>
+                <Label className="font-medium text-lg">People Detection</Label>
+                <p className="text-xs text-muted-foreground">Person detection, tracking, Re-ID, and events</p>
               </div>
               <Switch
                 checked={settings.detect_people}
                 onChange={(e) => setSettings((s) => ({ ...s, detect_people: e.target.checked }))}
               />
             </div>
-            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+            {settings.detect_people && (
+              <div className="grid gap-3 md:grid-cols-3 pl-9 border-l-2 border-border/50">
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <User className="h-5 w-5 text-sky-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Face Detection</Label>
+                    <p className="text-xs text-muted-foreground">Detect and crop faces for identification</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_faces}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_faces: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Brain className="h-5 w-5 text-violet-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Person Attributes</Label>
+                    <p className="text-xs text-muted-foreground">Gender, age range, clothing colors</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_person_attributes}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_person_attributes: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Behavior Analysis</Label>
+                    <p className="text-xs text-muted-foreground">Loitering, running, carrying, entered/exited</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_behavior}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_behavior: e.target.checked }))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Vehicles Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
               <Car className="h-6 w-6 text-primary" />
               <div className="flex-1">
-                <Label className="font-medium">Vehicles</Label>
-                <p className="text-xs text-muted-foreground">Detect cars, trucks, buses, motorcycles</p>
+                <Label className="font-medium text-lg">Vehicle Detection</Label>
+                <p className="text-xs text-muted-foreground">Cars, trucks, buses, motorcycles tracking</p>
               </div>
               <Switch
                 checked={settings.detect_vehicles}
                 onChange={(e) => setSettings((s) => ({ ...s, detect_vehicles: e.target.checked }))}
               />
             </div>
-            <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+            {settings.detect_vehicles && (
+              <div className="grid gap-3 md:grid-cols-3 pl-9 border-l-2 border-border/50">
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Eye className="h-5 w-5 text-emerald-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">License Plate Recognition</Label>
+                    <p className="text-xs text-muted-foreground">Detect and OCR license plates (LPR)</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_license_plates}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_license_plates: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Palette className="h-5 w-5 text-rose-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Vehicle Color</Label>
+                    <p className="text-xs text-muted-foreground">Classify primary vehicle color</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_vehicle_color}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_vehicle_color: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Truck className="h-5 w-5 text-orange-500" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Make/Model</Label>
+                    <p className="text-xs text-muted-foreground">Identify vehicle make and model (requires additional model)</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_vehicle_make_model}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_vehicle_make_model: e.target.checked }))}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Animals Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
               <PawPrint className="h-6 w-6 text-primary" />
               <div className="flex-1">
-                <Label className="font-medium">Animals</Label>
-                <p className="text-xs text-muted-foreground">Detect dogs, cats, birds, etc.</p>
+                <Label className="font-medium text-lg">Animal Detection</Label>
+                <p className="text-xs text-muted-foreground">Dogs, cats, birds and other animals</p>
               </div>
               <Switch
                 checked={settings.detect_animals}
                 onChange={(e) => setSettings((s) => ({ ...s, detect_animals: e.target.checked }))}
               />
             </div>
+            {settings.detect_animals && (
+              <div className="grid gap-3 md:grid-cols-3 pl-9 border-l-2 border-border/50">
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Dog className="h-5 w-5 text-amber-600" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Dogs</Label>
+                    <p className="text-xs text-muted-foreground">Detect and track dogs</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_dogs}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_dogs: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Cat className="h-5 w-5 text-purple-600" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Cats</Label>
+                    <p className="text-xs text-muted-foreground">Detect and track cats</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_cats}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_cats: e.target.checked }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <Bird className="h-5 w-5 text-sky-600" />
+                  <div className="flex-1">
+                    <Label className="font-medium">Birds</Label>
+                    <p className="text-xs text-muted-foreground">Detect and track birds</p>
+                  </div>
+                  <Switch
+                    checked={settings.detect_birds}
+                    onChange={(e) => setSettings((s) => ({ ...s, detect_birds: e.target.checked }))}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <Button onClick={handleSaveDetection} disabled={saving === "detection"}>
+<Button onClick={handleSaveDetection} disabled={saving === "detection"} className="w-full">
             {saving === "detection" ? "Saving..." : "Save Detection Preferences"}
           </Button>
         </CardContent>
